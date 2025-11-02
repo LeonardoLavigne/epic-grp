@@ -19,6 +19,7 @@ from app.schemas.finance.transaction import TransactionCreate, TransactionOut, T
 from app.schemas.finance.transfer import TransferCreate, TransferResponse, TransferOut
 from app.core.money import currency_exponent, cents_to_amount
 from app.schemas.finance.reports import BalanceByAccountItem, MonthlyByCategoryItem
+from app.core.modules import require_module
 from app.crud.finance.account import (
     create_account as _create_account,
     list_accounts as _list_accounts,
@@ -49,7 +50,7 @@ from app.crud.finance.transfer import create_transfer as _create_transfer
 from app.crud.finance.transfer import void_transfer as _void_transfer
 
 
-router = APIRouter(prefix="/fin", tags=["finances"])
+router = APIRouter(prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
 
 
 def _present_tx(tx: Transaction, currency: str) -> TransactionOut:

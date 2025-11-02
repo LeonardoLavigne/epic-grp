@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     secret_key: str = Field(...)
     algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=60)
+    enable_finance: bool = Field(default=True)
+    enable_health: bool = Field(default=False)
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
