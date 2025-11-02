@@ -67,3 +67,32 @@ FIN-007: Testes (TDD) (Finanças)
 
 FIN-008: Base para multi-moeda futura (Finanças)
 └── Subtask: Util para mapping de exponent por currency (ISO 4217) (sem implementar lógica por transação agora)
+
+FIN-009: Multi-moeda — Modelagem + Migrações
+├── Subtask: Adicionar `currency` em `transactions` (default da `account` na criação)
+├── Subtask: Criar `fx_rates(base, quote, rate, date)` com UNIQUE(base, quote, date)
+└── Subtask: Índices em `(base, quote, date)`
+
+FIN-010: Multi-moeda — Schemas + Validações
+├── Subtask: `TransactionCreate/Update` aceitar `currency` opcional (usa `account.currency` se ausente)
+├── Subtask: Validar precisão por moeda via `money.py` (ISO 4217)
+└── Subtask: Schemas `FXRateCreate` e consulta
+
+FIN-011: Multi-moeda — CRUD + Endpoints de FX
+├── Subtask: `POST /fin/fx-rates` (criar/atualizar taxa do dia)
+├── Subtask: `GET /fin/fx-rates?base=&quote=&from=&to=`
+└── Subtask: Serviço `get_rate(date, base, quote)` (base==quote → 1.0)
+
+FIN-012: Multi-moeda — Transações
+├── Subtask: Persistir `amount_cents` conforme `transaction.currency`
+└── Subtask: Listagem exibir `amount` + `currency` da transação (sem conversão por padrão)
+
+FIN-013: Multi-moeda — Relatórios
+├── Subtask: `report_currency` opcional; converter por `occurred_at`
+├── Subtask: Falta de taxa → 422 (ou fallback se aprovado)
+└── Subtask: Arredondamento por exponent da `report_currency`
+
+FIN-014: Multi-moeda — Transferências (futuro)
+├── Subtask: Duas transações ligadas por `transfer_id`
+├── Subtask: Diferença FX (P&L) — posterior
+└── Subtask: Fora do corte inicial
