@@ -108,17 +108,57 @@ async def update_category(
     return cat
 
 
+def _parse_query_dt(value: str | None) -> dt.datetime | None:
+    if value is None:
+        return None
+    v = value.replace("Z", "+00:00").replace(" ", "+")
+    try:
+        dtv = dt.datetime.fromisoformat(v)
+    except Exception:
+        raise HTTPException(status_code=422, detail="invalid datetime format")
+    if dtv.tzinfo is not None:
+        return dtv.astimezone(dt.timezone.utc)
+    return dtv.replace(tzinfo=dt.timezone.utc)
+
+
 @router.get("/transactions", response_model=List[TransactionOut])
 async def list_transactions(
+    from_date: str | None = None,
+    to_date: str | None = None,
+    account_id: int | None = None,
+    category_id: int | None = None,
+    type: str | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    items = await _list_transactions(session, user_id=current_user.id)
-    # fetch account currency for each (could optimize later)
-    # Simple approach: assume one currency per account
+    q = (
+        select(Transaction, Account, Category)
+        .join(Account, Transaction.account_id == Account.id)
+        .join(Category, Transaction.category_id == Category.id, isouter=True)
+        .where(Transaction.user_id == current_user.id)
+        .order_by(Transaction.occurred_at.desc())
+    )
+
+    if from_date is not None:
+        fd = _parse_query_dt(from_date)
+        q = q.where(Transaction.occurred_at >= fd)
+    if to_date is not None:
+        td = _parse_query_dt(to_date)
+        q = q.where(Transaction.occurred_at <= td)
+    if account_id is not None:
+        q = q.where(Transaction.account_id == account_id)
+    if category_id is not None:
+        q = q.where(Transaction.category_id == category_id)
+    if type is not None:
+        typ = type.upper()
+        if typ not in {"INCOME", "EXPENSE"}:
+            raise HTTPException(status_code=422, detail="invalid type")
+        q = q.where(Category.type == typ)
+
+    rows = (await session.execute(q)).all()
+
     result: list[TransactionOut] = []
-    for tx in items:
-        acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
+    for tx, acc, cat in rows:
         currency = acc.currency if acc else "EUR"
         result.append(_present_tx(tx, currency))
     return result
