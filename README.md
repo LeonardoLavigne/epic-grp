@@ -168,3 +168,58 @@ make ready            # Consulta /ready (curl)
   - Accounts: `GET /fin/accounts?include_closed=true`
   - Categories: `GET /fin/categories?include_inactive=true`
   - Transactions: `GET /fin/transactions?include_voided=true`
+
+### Exemplos (curl)
+
+Criar conta e categoria:
+
+```bash
+curl -sS -X POST http://localhost:8000/fin/accounts \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Main","currency":"EUR"}'
+
+curl -sS -X POST http://localhost:8000/fin/categories \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Salary","type":"INCOME"}'
+```
+
+Criar transação (amount em Decimal; occurred_at ISO 8601 UTC):
+
+```bash
+NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+curl -sS -X POST http://localhost:8000/fin/transactions \
+  -H 'Content-Type: application/json' \
+  -d '{"account_id":1,"category_id":1,"amount":"10.50","occurred_at":"'$NOW'"}'
+```
+
+Listar transações com filtros de data e tipo:
+
+```bash
+curl -sS "http://localhost:8000/fin/transactions?from_date=2025-01-01T00:00:00Z&to_date=2025-01-31T23:59:59Z&type=INCOME"
+```
+
+Criar transferência (valor destino conhecido):
+
+```bash
+NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+curl -sS -X POST http://localhost:8000/fin/transfers \
+  -H 'Content-Type: application/json' \
+  -d '{"src_account_id":1,"dst_account_id":2,"src_amount":"122.12","dst_amount":"650.00","occurred_at":"'$NOW'"}'
+```
+
+Anular transferência e transação:
+
+```bash
+curl -sS -X POST http://localhost:8000/fin/transfers/1/void
+curl -sS -X POST http://localhost:8000/fin/transactions/1/void
+```
+
+Relatórios com flags:
+
+```bash
+# Saldo por conta (mês atual), incluindo contas fechadas
+curl -sS "http://localhost:8000/fin/reports/balance-by-account?include_closed=true"
+
+# Mensal por categoria, incluindo categorias inativas
+curl -sS "http://localhost:8000/fin/reports/monthly-by-category?year=2025&month=1&include_inactive=true"
+```

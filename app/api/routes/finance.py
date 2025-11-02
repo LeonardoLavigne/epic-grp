@@ -463,6 +463,16 @@ async def void_transaction(
     return _present_tx(tx, currency)
 
 
+@router.delete("/transfers/{transfer_id}")
+async def delete_transfer(
+    transfer_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    # Hard delete is disabled to preserve audit trail
+    raise HTTPException(status_code=405, detail="Deletion disabled. Use POST /fin/transfers/{id}/void instead.")
+
+
 @router.get("/transfers/{transfer_id}", response_model=TransferOut)
 async def get_transfer(
     transfer_id: int,
@@ -491,6 +501,8 @@ async def get_transfer(
 async def balance_by_account(
     year: int | None = None,
     month: int | None = None,
+    include_closed: bool = False,
+    include_inactive: bool = False,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -500,6 +512,8 @@ async def balance_by_account(
     month = month or now.month
     # Fetch accounts for user
     acc_rows = (await session.execute(select(Account).where(Account.user_id == current_user.id))).scalars().all()
+    if not include_closed:
+        acc_rows = [a for a in acc_rows if getattr(a, "status", "ACTIVE") != "CLOSED"]
     # Initialize map
     totals: dict[int, int] = {a.id: 0 for a in acc_rows}
 
@@ -518,6 +532,12 @@ async def balance_by_account(
         # SQLite may be naive; treat as UTC
         if occ.year != year or occ.month != month:
             continue
+        # skip transactions from closed accounts unless included
+        if not include_closed and acc and getattr(acc, "status", "ACTIVE") == "CLOSED":
+            continue
+        # skip inactive categories unless included
+        if not include_inactive and cat is not None and not bool(getattr(cat, "active", True)):
+            continue
         sign = 1
         if cat is not None and cat.type.upper() == "EXPENSE":
             sign = -1
@@ -532,7 +552,10 @@ async def balance_by_account(
 
 @router.get("/reports/monthly-by-category", response_model=List[MonthlyByCategoryItem])
 async def monthly_by_category(
-    year: int, month: int,
+    year: int,
+    month: int,
+    include_closed: bool = False,
+    include_inactive: bool = False,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -553,8 +576,14 @@ async def monthly_by_category(
         # SQLite may be naive; treat as UTC
         if occ.year != year or occ.month != month:
             continue
+        # skip closed accounts unless included
+        if not include_closed and acc and getattr(acc, "status", "ACTIVE") == "CLOSED":
+            continue
         if cat is None:
             # skip uncategorized for this report
+            continue
+        # skip inactive categories unless included
+        if not include_inactive and not bool(getattr(cat, "active", True)):
             continue
         key = (cat.id, cat.type.upper(), cat.name)
         sign = -1 if cat.type.upper() == "EXPENSE" else 1
