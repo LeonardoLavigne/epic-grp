@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Minimal tokens */
+:root {
+  --bg: #0b0c10;
+  --fg: #f1f1f1;
+}
+body { background: var(--bg); color: var(--fg); }
+
