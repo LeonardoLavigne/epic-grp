@@ -24,6 +24,7 @@ export const AppLayout: React.FC = () => {
             <NavLink to="/fin/accounts" className={linkClass}>Accounts</NavLink>
             <NavLink to="/fin/categories" className={linkClass}>Categories</NavLink>
             <NavLink to="/fin/transactions" className={linkClass}>Transactions</NavLink>
+            <NavLink to="/fin/transfers" className={linkClass}>Transfers</NavLink>
           </nav>
           <div className="ml-auto flex items-center gap-2">
             {!isAuthenticated && <Link to="/auth/login" className="btn btn-ghost">Login</Link>}
