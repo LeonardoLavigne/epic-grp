@@ -64,10 +64,19 @@ async def merge_categories(session: AsyncSession, *, user_id: int, src_category_
     return count
 
 
-async def list_categories(session: AsyncSession, *, user_id: int, skip: int = 0, limit: int = 100) -> Sequence[Category]:
-    res = await session.execute(
-        select(Category).where(Category.user_id == user_id).offset(skip).limit(limit)
-    )
+async def list_categories(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    type: str | None = None,
+) -> Sequence[Category]:
+    q = select(Category).where(Category.user_id == user_id)
+    if type is not None:
+        q = q.where(Category.type == type)
+    q = q.offset(skip).limit(limit)
+    res = await session.execute(q)
     return res.scalars().all()
 
 

@@ -130,3 +130,38 @@ def test_patch_invalid_amount(client, app):
     r = client.patch(f"/fin/transactions/{tx['id']}/amount", json={"amount": "abc"})
     assert r.status_code == 422
 
+
+def test_accounts_filter_by_name(client, app):
+    async def _get_user():
+        return User(id=1, email="flt1@example.com", hashed_password="x")
+
+    app.dependency_overrides[get_current_user] = _get_user
+
+    # create accounts
+    client.post("/fin/accounts", json={"name": "Main", "currency": "EUR"})
+    client.post("/fin/accounts", json={"name": "Savings", "currency": "EUR"})
+    client.post("/fin/accounts", json={"name": "Other", "currency": "EUR"})
+
+    # filter by substring 'av' should return only 'Savings'
+    r = client.get("/fin/accounts", params={"name": "av"})
+    assert r.status_code == 200
+    names = [a["name"] for a in r.json()]
+    assert all("av" in n.lower() for n in names)
+    assert "Savings" in names
+
+
+def test_categories_filter_by_type(client, app):
+    async def _get_user():
+        return User(id=1, email="flt1@example.com", hashed_password="x")
+
+    app.dependency_overrides[get_current_user] = _get_user
+
+    # create categories of both types
+    client.post("/fin/categories", json={"name": "Gift", "type": "INCOME"})
+    client.post("/fin/categories", json={"name": "Transport", "type": "EXPENSE"})
+
+    r = client.get("/fin/categories", params={"type": "INCOME"})
+    assert r.status_code == 200
+    items = r.json()
+    assert len(items) >= 1
+    assert all(i["type"] == "INCOME" for i in items)

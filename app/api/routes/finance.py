@@ -74,10 +74,11 @@ def _present_tx(tx: Transaction, currency: str) -> TransactionOut:
 @router.get("/accounts", response_model=List[AccountOut])
 async def list_accounts(
     include_closed: bool = False,
+    name: str | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    items = await _list_accounts(session, user_id=current_user.id)
+    items = await _list_accounts(session, user_id=current_user.id, name=name)
     if not include_closed:
         items = [a for a in items if (getattr(a, "status", "ACTIVE") or "ACTIVE") != "CLOSED"]
     return items
@@ -147,10 +148,17 @@ async def delete_account(
 @router.get("/categories", response_model=List[CategoryOut])
 async def list_categories(
     include_inactive: bool = False,
+    type: str | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    items = await _list_categories(session, user_id=current_user.id)
+    type_filter: str | None = None
+    if type is not None:
+        typ = type.upper()
+        if typ not in {"INCOME", "EXPENSE"}:
+            raise HTTPException(status_code=422, detail="invalid type")
+        type_filter = typ
+    items = await _list_categories(session, user_id=current_user.id, type=type_filter)
     if not include_inactive:
         items = [c for c in items if bool(getattr(c, "active", True))]
     return items

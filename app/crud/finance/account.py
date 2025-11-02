@@ -1,6 +1,6 @@
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finance.account import Account
@@ -16,10 +16,21 @@ async def create_account(session: AsyncSession, *, user_id: int, data: AccountCr
     return acc
 
 
-async def list_accounts(session: AsyncSession, *, user_id: int, skip: int = 0, limit: int = 100) -> Sequence[Account]:
-    res = await session.execute(
-        select(Account).where(Account.user_id == user_id).offset(skip).limit(limit)
-    )
+async def list_accounts(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    name: str | None = None,
+) -> Sequence[Account]:
+    q = select(Account).where(Account.user_id == user_id)
+    if name:
+        # case-insensitive contains filter, portable across SQLite/Postgres
+        pattern = f"%{name.lower()}%"
+        q = q.where(func.lower(Account.name).like(pattern))
+    q = q.offset(skip).limit(limit)
+    res = await session.execute(q)
     return res.scalars().all()
 
 
