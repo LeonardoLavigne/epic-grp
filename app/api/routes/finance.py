@@ -15,6 +15,7 @@ from app.models.finance.transaction import Transaction
 from app.schemas.finance.account import AccountCreate, AccountOut, AccountUpdate
 from app.schemas.finance.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.finance.transaction import TransactionCreate, TransactionOut
+from app.schemas.finance.transfer import TransferCreate, TransferResponse, TransferOut
 from app.core.money import currency_exponent, cents_to_amount
 from app.schemas.finance.reports import BalanceByAccountItem, MonthlyByCategoryItem
 from app.crud.finance.account import create_account as _create_account, list_accounts as _list_accounts, update_account as _update_account
@@ -24,6 +25,7 @@ from app.crud.finance.transaction import (
     list_transactions as _list_transactions,
     update_transaction_amount as _update_transaction_amount,
 )
+from app.crud.finance.transfer import create_transfer as _create_transfer
 
 
 router = APIRouter(prefix="/fin", tags=["finances"])
@@ -193,6 +195,34 @@ async def update_transaction_amount(
     acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
     currency = acc.currency if acc else "EUR"
     return _present_tx(tx, currency)
+
+
+@router.post("/transfers", response_model=TransferResponse, status_code=status.HTTP_201_CREATED)
+async def create_transfer(
+    data: TransferCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        tr, tx_out, tx_in = await _create_transfer(session, user_id=current_user.id, data=data)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    # Present amounts and rate in Decimals according to currency
+    src_amount = cents_to_amount(tr.src_amount_cents, tr.rate_base)
+    dst_amount = cents_to_amount(tr.dst_amount_cents, tr.rate_quote)
+    out = TransferOut(
+        id=tr.id,
+        src_account_id=tr.src_account_id,
+        dst_account_id=tr.dst_account_id,
+        src_amount=src_amount,
+        dst_amount=dst_amount,
+        rate_value=Decimal(str(tr.rate_value)),
+        rate_base=tr.rate_base,
+        rate_quote=tr.rate_quote,
+        occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
+    )
+    return TransferResponse(transfer=out, src_transaction_id=tx_out.id, dst_transaction_id=tx_in.id)
 
 
 @router.get("/reports/balance-by-account", response_model=List[BalanceByAccountItem])
