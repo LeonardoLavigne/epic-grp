@@ -1,0 +1,24 @@
+# uv / Python
+.venv/
+uv.lock
+/.uv-cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# OS / misc
+.DS_Store
+*.env
+.env
+.env.*
+.vscode/
+.idea/
+*.log
+
+# Temp/local DBs
+*.db
