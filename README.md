@@ -80,7 +80,7 @@ print(secrets.token_urlsafe(64))
 PY
 ```
 
-- Exemplo de chaves no `.env`:
+- Exemplo de chaves no `.env` (NÃO comitar credenciais reais):
 
 ```env
 DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@localhost:5432/DB_NAME
@@ -150,4 +150,3 @@ make downgrade        # Reverte última migração
 make ready            # Consulta /ready (curl)
 ```
 
-Observação: Substitua `<owner>/<repo>` no badge de CI acima pelo repositório no GitHub.
