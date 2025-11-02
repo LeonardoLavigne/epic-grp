@@ -150,3 +150,21 @@ make downgrade        # Reverte última migração
 make ready            # Consulta /ready (curl)
 ```
 
+## Finanças – Ciclo de Vida e Regras de Exclusão
+- Regras (consistência + rastreabilidade):
+  - Accounts: não deletar se em uso; use `POST /fin/accounts/{id}/close` (status=CLOSED). Listas ocultam fechadas por padrão.
+  - Categories: não deletar se referenciada; use `POST /fin/categories/{id}/deactivate` (active=false) e `POST /fin/categories/merge` (mover transações src→dst). Listas ocultam inativas por padrão.
+  - Transactions: prefira `POST /fin/transactions/{id}/void` (voided=true) em vez de deletar. Listas ocultam voided por padrão.
+  - Transfers: `POST /fin/transfers/{id}/void` anula o par; as transações ligadas ficam ocultas por padrão.
+
+- Endpoints de ciclo de vida:
+  - Fechar conta: `POST /fin/accounts/{id}/close`
+  - Desativar categoria: `POST /fin/categories/{id}/deactivate`
+  - Unificar categorias: `POST /fin/categories/merge` (JSON: `src_category_id`, `dst_category_id`)
+  - Anular transação: `POST /fin/transactions/{id}/void`
+  - Anular transferência: `POST /fin/transfers/{id}/void`
+
+- Flags nas listagens:
+  - Accounts: `GET /fin/accounts?include_closed=true`
+  - Categories: `GET /fin/categories?include_inactive=true`
+  - Transactions: `GET /fin/transactions?include_voided=true`

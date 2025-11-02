@@ -96,3 +96,10 @@ FIN-014: Multi-moeda — Transferências (futuro)
 ├── Subtask: Duas transações ligadas por `transfer_id`
 ├── Subtask: Diferença FX (P&L) — posterior
 └── Subtask: Fora do corte inicial
+
+FIN-016: Ciclo de vida (consistência + rastreabilidade)
+├── Subtask: Accounts: `status` (ACTIVE|CLOSED) e endpoint `/fin/accounts/{id}/close`
+├── Subtask: Categories: `active` (bool) e endpoint `/fin/categories/{id}/deactivate` + `merge`
+├── Subtask: Transactions: `voided` (bool) e endpoint `/fin/transactions/{id}/void` (excluídas por padrão nas listas)
+├── Subtask: Transfers: `voided` (bool) e endpoint `/fin/transfers/{id}/void` (anula par atômico)
+└── Subtask: Ajustar listagens/relatórios para ocultar CLOSED/INACTIVE/VOIDED por padrão (com flags)

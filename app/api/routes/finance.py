@@ -12,20 +12,41 @@ from app.models.user import User
 from app.models.finance.account import Account
 from app.models.finance.category import Category
 from app.models.finance.transaction import Transaction
+from app.models.finance.transfer import Transfer
 from app.schemas.finance.account import AccountCreate, AccountOut, AccountUpdate
 from app.schemas.finance.category import CategoryCreate, CategoryOut, CategoryUpdate
-from app.schemas.finance.transaction import TransactionCreate, TransactionOut
+from app.schemas.finance.transaction import TransactionCreate, TransactionOut, TransactionUpdate
 from app.schemas.finance.transfer import TransferCreate, TransferResponse, TransferOut
 from app.core.money import currency_exponent, cents_to_amount
 from app.schemas.finance.reports import BalanceByAccountItem, MonthlyByCategoryItem
-from app.crud.finance.account import create_account as _create_account, list_accounts as _list_accounts, update_account as _update_account
-from app.crud.finance.category import create_category as _create_category, list_categories as _list_categories, update_category as _update_category
+from app.crud.finance.account import (
+    create_account as _create_account,
+    list_accounts as _list_accounts,
+    update_account as _update_account,
+    get_account as _get_account,
+    delete_account as _delete_account,
+    close_account as _close_account,
+)
+from app.crud.finance.category import (
+    create_category as _create_category,
+    list_categories as _list_categories,
+    update_category as _update_category,
+    get_category as _get_category,
+    delete_category as _delete_category,
+    deactivate_category as _deactivate_category,
+    merge_categories as _merge_categories,
+)
 from app.crud.finance.transaction import (
     create_transaction as _create_transaction,
     list_transactions as _list_transactions,
     update_transaction_amount as _update_transaction_amount,
+    get_transaction as _get_transaction,
+    update_transaction as _update_transaction,
+    delete_transaction as _delete_transaction,
 )
+from app.crud.finance.transaction import void_transaction as _void_transaction
 from app.crud.finance.transfer import create_transfer as _create_transfer
+from app.crud.finance.transfer import void_transfer as _void_transfer
 
 
 router = APIRouter(prefix="/fin", tags=["finances"])
@@ -51,10 +72,13 @@ def _present_tx(tx: Transaction, currency: str) -> TransactionOut:
 
 @router.get("/accounts", response_model=List[AccountOut])
 async def list_accounts(
+    include_closed: bool = False,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
     items = await _list_accounts(session, user_id=current_user.id)
+    if not include_closed:
+        items = [a for a in items if (getattr(a, "status", "ACTIVE") or "ACTIVE") != "CLOSED"]
     return items
 
 
@@ -65,6 +89,18 @@ async def create_account(
     current_user: User = Depends(get_current_user),
 ):
     return await _create_account(session, user_id=current_user.id, data=data)
+
+
+@router.post("/accounts/{account_id}/close", response_model=AccountOut)
+async def close_account(
+    account_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    acc = await _close_account(session, user_id=current_user.id, account_id=account_id)
+    if not acc:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return acc
 
 
 @router.patch("/accounts/{account_id}", response_model=AccountOut)
@@ -80,12 +116,43 @@ async def update_account(
     return acc
 
 
-@router.get("/categories", response_model=List[CategoryOut])
-async def list_categories(
+@router.get("/accounts/{account_id}", response_model=AccountOut)
+async def get_account(
+    account_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    return await _list_categories(session, user_id=current_user.id)
+    acc = await _get_account(session, user_id=current_user.id, account_id=account_id)
+    if not acc:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return acc
+
+
+@router.delete("/accounts/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    account_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        ok = await _delete_account(session, user_id=current_user.id, account_id=account_id)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Account in use")
+    if not ok:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return None
+
+
+@router.get("/categories", response_model=List[CategoryOut])
+async def list_categories(
+    include_inactive: bool = False,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    items = await _list_categories(session, user_id=current_user.id)
+    if not include_inactive:
+        items = [c for c in items if bool(getattr(c, "active", True))]
+    return items
 
 
 @router.post("/categories", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
@@ -95,6 +162,36 @@ async def create_category(
     current_user: User = Depends(get_current_user),
 ):
     return await _create_category(session, user_id=current_user.id, data=data)
+
+
+@router.post("/categories/{category_id}/deactivate", response_model=CategoryOut)
+async def deactivate_category(
+    category_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    cat = await _deactivate_category(session, user_id=current_user.id, category_id=category_id)
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return cat
+
+
+@router.post("/categories/merge")
+async def merge_categories(
+    payload: dict,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        src = int(payload.get("src_category_id"))
+        dst = int(payload.get("dst_category_id"))
+    except Exception:
+        raise HTTPException(status_code=422, detail="invalid payload")
+    try:
+        moved = await _merge_categories(session, user_id=current_user.id, src_category_id=src, dst_category_id=dst)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return {"moved": moved}
 
 
 @router.patch("/categories/{category_id}", response_model=CategoryOut)
@@ -108,6 +205,33 @@ async def update_category(
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
     return cat
+
+
+@router.get("/categories/{category_id}", response_model=CategoryOut)
+async def get_category(
+    category_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    cat = await _get_category(session, user_id=current_user.id, category_id=category_id)
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return cat
+
+
+@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_category(
+    category_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        ok = await _delete_category(session, user_id=current_user.id, category_id=category_id)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="Category in use")
+    if not ok:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return None
 
 
 def _parse_query_dt(value: str | None) -> dt.datetime | None:
@@ -130,6 +254,7 @@ async def list_transactions(
     account_id: int | None = None,
     category_id: int | None = None,
     type: str | None = None,
+    include_voided: bool = False,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
@@ -157,6 +282,8 @@ async def list_transactions(
             raise HTTPException(status_code=422, detail="invalid type")
         q = q.where(Category.type == typ)
 
+    if not include_voided:
+        q = q.where(Transaction.voided.is_(False))
     rows = (await session.execute(q)).all()
 
     result: list[TransactionOut] = []
@@ -172,10 +299,59 @@ async def create_transaction(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    tx = await _create_transaction(session, user_id=current_user.id, data=data)
+    try:
+        tx = await _create_transaction(session, user_id=current_user.id, data=data)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
     currency = acc.currency if acc else "EUR"
     return _present_tx(tx, currency)
+
+
+@router.get("/transactions/{transaction_id}", response_model=TransactionOut)
+async def get_transaction(
+    transaction_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    tx = await _get_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
+    currency = acc.currency if acc else "EUR"
+    return _present_tx(tx, currency)
+
+
+@router.patch("/transactions/{transaction_id}", response_model=TransactionOut)
+async def patch_transaction(
+    transaction_id: int,
+    data: TransactionUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        tx = await _update_transaction(session, user_id=current_user.id, transaction_id=transaction_id, data=data)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
+    currency = acc.currency if acc else "EUR"
+    dto = _present_tx(tx, currency)
+    dto.description = data.description if data.description is not None else dto.description
+    return dto
+
+
+@router.delete("/transactions/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transaction(
+    transaction_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    ok = await _delete_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return None
 
 
 @router.patch("/transactions/{transaction_id}/amount", response_model=TransactionOut)
@@ -223,6 +399,92 @@ async def create_transfer(
         occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
     )
     return TransferResponse(transfer=out, src_transaction_id=tx_out.id, dst_transaction_id=tx_in.id)
+
+
+@router.get("/transfers/{transfer_id}", response_model=TransferOut)
+async def get_transfer(
+    transfer_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    tr = (await session.execute(select(Transfer).where(Transfer.id == transfer_id, Transfer.user_id == current_user.id))).scalars().first()
+    if not tr:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    src_amount = cents_to_amount(tr.src_amount_cents, tr.rate_base)
+    dst_amount = cents_to_amount(tr.dst_amount_cents, tr.rate_quote)
+    return TransferOut(
+        id=tr.id,
+        src_account_id=tr.src_account_id,
+        dst_account_id=tr.dst_account_id,
+        src_amount=src_amount,
+        dst_amount=dst_amount,
+        rate_value=Decimal(str(tr.rate_value)),
+        rate_base=tr.rate_base,
+        rate_quote=tr.rate_quote,
+        occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
+    )
+
+
+@router.post("/transfers/{transfer_id}/void", response_model=TransferOut)
+async def void_transfer(
+    transfer_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    tr = await _void_transfer(session, user_id=current_user.id, transfer_id=transfer_id)
+    if not tr:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    src_amount = cents_to_amount(tr.src_amount_cents, tr.rate_base)
+    dst_amount = cents_to_amount(tr.dst_amount_cents, tr.rate_quote)
+    return TransferOut(
+        id=tr.id,
+        src_account_id=tr.src_account_id,
+        dst_account_id=tr.dst_account_id,
+        src_amount=src_amount,
+        dst_amount=dst_amount,
+        rate_value=Decimal(str(tr.rate_value)),
+        rate_base=tr.rate_base,
+        rate_quote=tr.rate_quote,
+        occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
+    )
+
+
+@router.post("/transactions/{transaction_id}/void", response_model=TransactionOut)
+async def void_transaction(
+    transaction_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    tx = await _void_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
+    currency = acc.currency if acc else "EUR"
+    return _present_tx(tx, currency)
+
+
+@router.get("/transfers/{transfer_id}", response_model=TransferOut)
+async def get_transfer(
+    transfer_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    tr = (await session.execute(select(Transfer).where(Transfer.id == transfer_id, Transfer.user_id == current_user.id))).scalars().first()
+    if not tr:
+        raise HTTPException(status_code=404, detail="Transfer not found")
+    src_amount = cents_to_amount(tr.src_amount_cents, tr.rate_base)
+    dst_amount = cents_to_amount(tr.dst_amount_cents, tr.rate_quote)
+    return TransferOut(
+        id=tr.id,
+        src_account_id=tr.src_account_id,
+        dst_account_id=tr.dst_account_id,
+        src_amount=src_amount,
+        dst_amount=dst_amount,
+        rate_value=Decimal(str(tr.rate_value)),
+        rate_base=tr.rate_base,
+        rate_quote=tr.rate_quote,
+        occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
+    )
 
 
 @router.get("/reports/balance-by-account", response_model=List[BalanceByAccountItem])

@@ -27,6 +27,8 @@ async def create_transaction(session: AsyncSession, *, user_id: int, data: Trans
     acc = await _get_account_for_user(session, user_id=user_id, account_id=data.account_id)
     if not acc:
         raise ValueError("account not found or not owned by user")
+    if acc.status and acc.status.upper() == "CLOSED":
+        raise ValueError("account closed")
     cat = await _validate_category_for_user(session, user_id=user_id, category_id=data.category_id)
     if data.category_id is not None and not cat:
         raise ValueError("category not found or not owned by user")
@@ -55,10 +57,13 @@ async def list_transactions(
     user_id: int,
     skip: int = 0,
     limit: int = 100,
+    include_voided: bool = False,
 ) -> Sequence[Transaction]:
-    res = await session.execute(
-        select(Transaction).where(Transaction.user_id == user_id).order_by(Transaction.occurred_at.desc()).offset(skip).limit(limit)
-    )
+    stmt = select(Transaction).where(Transaction.user_id == user_id)
+    if not include_voided:
+        stmt = stmt.where(Transaction.voided.is_(False))
+    stmt = stmt.order_by(Transaction.occurred_at.desc()).offset(skip).limit(limit)
+    res = await session.execute(stmt)
     return res.scalars().all()
 
 
@@ -84,3 +89,55 @@ async def update_transaction_amount(
     await session.refresh(tx)
     return tx
 
+
+async def get_transaction(session: AsyncSession, *, user_id: int, transaction_id: int) -> Transaction | None:
+    res = await session.execute(select(Transaction).where(Transaction.id == transaction_id, Transaction.user_id == user_id))
+    return res.scalars().first()
+
+
+async def update_transaction(
+    session: AsyncSession, *, user_id: int, transaction_id: int, data: TransactionUpdate
+) -> Transaction | None:
+    tx = await get_transaction(session, user_id=user_id, transaction_id=transaction_id)
+    if not tx:
+        return None
+    # account for currency rules
+    acc = await _get_account_for_user(session, user_id=user_id, account_id=tx.account_id)
+    if data.amount is not None:
+        validate_amount_for_currency(data.amount, acc.currency)
+        tx.amount_cents = amount_to_cents(data.amount, acc.currency)
+    if data.category_id is not None:
+        cat = await _validate_category_for_user(session, user_id=user_id, category_id=data.category_id)
+        if data.category_id is not None and not cat:
+            raise ValueError("category not found or not owned by user")
+        tx.category_id = data.category_id
+    if data.occurred_at is not None:
+        tx.occurred_at = data.occurred_at
+    if data.description is not None:
+        tx.description = data.description
+    session.add(tx)
+    await session.commit()
+    await session.refresh(tx)
+    return tx
+
+
+async def delete_transaction(session: AsyncSession, *, user_id: int, transaction_id: int) -> bool:
+    tx = await get_transaction(session, user_id=user_id, transaction_id=transaction_id)
+    if not tx:
+        return False
+    await session.delete(tx)
+    await session.commit()
+    return True
+
+
+async def void_transaction(session: AsyncSession, *, user_id: int, transaction_id: int) -> Transaction | None:
+    # Fetch by id, then check ownership to avoid edge cases with filtering
+    res = await session.execute(select(Transaction).where(Transaction.id == transaction_id))
+    tx = res.scalars().first()
+    if not tx or tx.user_id != user_id:
+        return None
+    tx.voided = True
+    session.add(tx)
+    await session.commit()
+    await session.refresh(tx)
+    return tx

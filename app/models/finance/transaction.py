@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, ForeignKey, Text, Index, DateTime
+from sqlalchemy import BigInteger, ForeignKey, Text, Index, DateTime, Boolean
 import datetime as dt
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +16,7 @@ class Transaction(TimestampMixin, Base):
     occurred_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     transfer_id: Mapped[int | None] = mapped_column(ForeignKey("transfers.id", ondelete="SET NULL"), nullable=True)
+    voided: Mapped[bool] = mapped_column(Boolean, default=False)
 
     __table_args__ = (
         Index("ix_transactions_user_occurred_at", "user_id", "occurred_at"),

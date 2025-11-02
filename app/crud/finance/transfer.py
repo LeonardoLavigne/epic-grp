@@ -107,3 +107,18 @@ async def create_transfer(session: AsyncSession, *, user_id: int, data: Transfer
     await session.refresh(tx_in)
     return tr, tx_out, tx_in
 
+
+async def void_transfer(session: AsyncSession, *, user_id: int, transfer_id: int) -> Transfer | None:
+    tr = (await session.execute(select(Transfer).where(Transfer.id == transfer_id, Transfer.user_id == user_id))).scalars().first()
+    if not tr:
+        return None
+    tr.voided = True
+    # void related transactions
+    txs = (await session.execute(select(Transaction).where(Transaction.transfer_id == tr.id, Transaction.user_id == user_id))).scalars().all()
+    for tx in txs:
+        tx.voided = True
+        session.add(tx)
+    session.add(tr)
+    await session.commit()
+    await session.refresh(tr)
+    return tr
