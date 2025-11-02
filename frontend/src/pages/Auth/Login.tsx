@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQueryClient } from '@tanstack/react-query'
 
 const schema = z.object({
   email: z.string().email('email inválido'),
@@ -20,6 +21,7 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation() as any
   const from = location.state?.from?.pathname || '/fin/accounts'
+  const qc = useQueryClient()
 
   const onSubmit = async (data: FormValues) => {
     try {
@@ -27,13 +29,15 @@ export default function Login() {
       const token = (r.data && (r.data.access_token || r.data.token)) || ''
       if (token) {
         login(token)
+        qc.clear()
         setStatus('ok')
         navigate(from, { replace: true })
       } else {
         setStatus('sem token')
       }
-    } catch (err) {
-      setStatus('erro')
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || 'erro'
+      setStatus(`erro: ${detail}`)
     }
   }
 
