@@ -15,7 +15,8 @@ from app.models.finance.transaction import Transaction
 from app.schemas.finance.account import AccountCreate, AccountOut, AccountUpdate
 from app.schemas.finance.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.finance.transaction import TransactionCreate, TransactionOut
-from app.core.money import currency_exponent
+from app.core.money import currency_exponent, cents_to_amount
+from app.schemas.finance.reports import BalanceByAccountItem, MonthlyByCategoryItem
 from app.crud.finance.account import create_account as _create_account, list_accounts as _list_accounts, update_account as _update_account
 from app.crud.finance.category import create_category as _create_category, list_categories as _list_categories, update_category as _update_category
 from app.crud.finance.transaction import (
@@ -152,3 +153,85 @@ async def update_transaction_amount(
     acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
     currency = acc.currency if acc else "EUR"
     return _present_tx(tx, currency)
+
+
+@router.get("/reports/balance-by-account", response_model=List[BalanceByAccountItem])
+async def balance_by_account(
+    year: int | None = None,
+    month: int | None = None,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    # Default to current UTC month when not provided
+    now = dt.datetime.now(dt.timezone.utc)
+    year = year or now.year
+    month = month or now.month
+    # Fetch accounts for user
+    acc_rows = (await session.execute(select(Account).where(Account.user_id == current_user.id))).scalars().all()
+    # Initialize map
+    totals: dict[int, int] = {a.id: 0 for a in acc_rows}
+
+    # Fetch transactions with categories
+    tx_rows = (await session.execute(
+        select(Transaction, Category, Account)
+        .join(Account, Transaction.account_id == Account.id)
+        .join(Category, Transaction.category_id == Category.id, isouter=True)
+        .where(Transaction.user_id == current_user.id)
+    )).all()
+
+    for tx, cat, acc in tx_rows:
+        occ = tx.occurred_at
+        if occ.tzinfo is not None:
+            occ = occ.astimezone(dt.timezone.utc)
+        # SQLite may be naive; treat as UTC
+        if occ.year != year or occ.month != month:
+            continue
+        sign = 1
+        if cat is not None and cat.type.upper() == "EXPENSE":
+            sign = -1
+        totals[tx.account_id] = totals.get(tx.account_id, 0) + (sign * tx.amount_cents)
+
+    # Present
+    out: list[BalanceByAccountItem] = []
+    for a in acc_rows:
+        out.append(BalanceByAccountItem(account_id=a.id, currency=a.currency, balance=cents_to_amount(totals.get(a.id, 0), a.currency)))
+    return out
+
+
+@router.get("/reports/monthly-by-category", response_model=List[MonthlyByCategoryItem])
+async def monthly_by_category(
+    year: int, month: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    # Fetch transactions + categories for the user
+    rows = (await session.execute(
+        select(Transaction, Category, Account)
+        .join(Account, Transaction.account_id == Account.id)
+        .join(Category, Transaction.category_id == Category.id, isouter=True)
+        .where(Transaction.user_id == current_user.id)
+    )).all()
+
+    # Aggregate in Python for the given year/month
+    agg: dict[tuple[int, str, str], int] = {}
+    for tx, cat, acc in rows:
+        occ = tx.occurred_at
+        if occ.tzinfo is not None:
+            occ = occ.astimezone(dt.timezone.utc)
+        # SQLite may be naive; treat as UTC
+        if occ.year != year or occ.month != month:
+            continue
+        if cat is None:
+            # skip uncategorized for this report
+            continue
+        key = (cat.id, cat.type.upper(), cat.name)
+        sign = -1 if cat.type.upper() == "EXPENSE" else 1
+        agg[key] = agg.get(key, 0) + sign * tx.amount_cents
+
+    out: list[MonthlyByCategoryItem] = []
+    for (cat_id, typ, name), cents in agg.items():
+        # Use account currency; mixed-currency not handled yet (future work)
+        # Pick first account currency seen (acc.currency not stored in key)
+        # For now assume EUR as agreed default
+        out.append(MonthlyByCategoryItem(category_id=cat_id, category_name=name, type=typ, total=cents_to_amount(cents, "EUR")))
+    return out
