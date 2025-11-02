@@ -1,12 +1,26 @@
 from decimal import Decimal, ROUND_DOWN
 
+# Minimal ISO 4217 exponent mapping for common currencies.
+# Extend as needed; defaults to 2 when unknown (KISS/YAGNI).
+ISO_4217_EXPONENTS: dict[str, int] = {
+    "EUR": 2,
+    "USD": 2,
+    "GBP": 2,
+    "BRL": 2,
+    "JPY": 0,
+    "CLP": 0,
+    "KWD": 3,
+    "BHD": 3,
+}
+
 
 def currency_exponent(currency: str) -> int:
+    """Return the number of decimal places for a currency (ISO 4217).
+
+    Defaults to 2 when currency code is unknown.
+    """
     cur = (currency or "").upper()
-    # Minimal mapping; extend later if needed
-    if cur == "EUR":
-        return 2
-    return 2
+    return ISO_4217_EXPONENTS.get(cur, 2)
 
 
 def validate_amount_for_currency(amount: Decimal, currency: str) -> Decimal:
