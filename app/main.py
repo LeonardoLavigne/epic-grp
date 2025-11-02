@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import logging
 from sqlalchemy.engine import make_url
@@ -48,6 +49,23 @@ def create_app() -> FastAPI:
 
     app = FastAPI(title="epic-grp", lifespan=lifespan)
     app.add_middleware(AccessLogMiddleware)
+
+    # CORS (dev-friendly by default; configurable via CORS_ORIGINS)
+    origins_env = os.getenv("CORS_ORIGINS", "")
+    if origins_env:
+        allow_origins = [o.strip() for o in origins_env.split(",") if o.strip()]
+    else:
+        allow_origins = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allow_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.get("/health")
     async def health():
