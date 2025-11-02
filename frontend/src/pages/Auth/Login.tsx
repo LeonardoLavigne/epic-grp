@@ -42,14 +42,29 @@ export default function Login() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2 max-w-80">
-      <h2>Login</h2>
-      <input placeholder="email" {...register('email')} className="px-2 py-1 rounded text-black" />
-      {errors.email && <span className="text-red-400 text-sm">{errors.email.message}</span>}
-      <input placeholder="password" type="password" {...register('password')} className="px-2 py-1 rounded text-black" />
-      {errors.password && <span className="text-red-400 text-sm">{errors.password.message}</span>}
-      <button type="submit" disabled={isSubmitting} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded">Entrar</button>
-      {status && <p>Status: {status}</p>}
-    </form>
+    <div className="max-w-md mx-auto">
+      <div className="card">
+        <div className="card-body">
+          <h2 className="text-lg font-semibold mb-1">Login</h2>
+          <p className="text-slate-600 mb-4">Entre para acessar os módulos.</p>
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
+            <div>
+              <label className="label">Email</label>
+              <input placeholder="you@example.com" {...register('email')} className="input" />
+              {errors.email && <span className="text-red-500 text-xs">{errors.email.message}</span>}
+            </div>
+            <div>
+              <label className="label">Senha</label>
+              <input placeholder="••••••••" type="password" {...register('password')} className="input" />
+              {errors.password && <span className="text-red-500 text-xs">{errors.password.message}</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={isSubmitting} className="btn btn-primary">Entrar</button>
+              {status && <span className="text-slate-600 text-sm">{status}</span>}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   )
 }

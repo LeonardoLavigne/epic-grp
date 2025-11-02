@@ -31,16 +31,30 @@ export default function Register() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-2 max-w-80">
-      <h2>Registrar</h2>
-      <input placeholder="email" {...register('email')} className="px-2 py-1 rounded text-black" />
-      {errors.email && <span className="text-red-400 text-sm">{errors.email.message}</span>}
-      <input placeholder="password" type="password" {...register('password')} className="px-2 py-1 rounded text-black" />
-      {errors.password && <span className="text-red-400 text-sm">{errors.password.message}</span>}
-      <button type="submit" disabled={isSubmitting} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1 rounded">Registrar</button>
-      {okMsg && <p className="text-emerald-300">{okMsg}</p>}
-      {errorMsg && <p className="text-red-400">{errorMsg}</p>}
-    </form>
+    <div className="max-w-md mx-auto">
+      <div className="card">
+        <div className="card-body">
+          <h2 className="text-lg font-semibold mb-1">Registrar</h2>
+          <p className="text-slate-600 mb-4">Crie sua conta para começar.</p>
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-3">
+            <div>
+              <label className="label">Email</label>
+              <input placeholder="you@example.com" {...register('email')} className="input" />
+              {errors.email && <span className="text-red-500 text-xs">{errors.email.message}</span>}
+            </div>
+            <div>
+              <label className="label">Senha</label>
+              <input placeholder="••••••••" type="password" {...register('password')} className="input" />
+              {errors.password && <span className="text-red-500 text-xs">{errors.password.message}</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={isSubmitting} className="btn btn-primary">Registrar</button>
+              {okMsg && <span className="text-emerald-600 text-sm">{okMsg}</span>}
+              {errorMsg && <span className="text-red-500 text-sm">{errorMsg}</span>}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   )
 }
-

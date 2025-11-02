@@ -66,100 +66,79 @@ export default function Transactions() {
   const items = listQ.data || []
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <h2>Transactions</h2>
-
-      <section style={{ display: 'grid', gap: 8 }}>
-        <h3>Filtros</h3>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <label>
-            de (ISO): <input value={fromDate} onChange={e => setFromDate(e.target.value)} placeholder="2025-01-01T00:00:00Z"/>
-          </label>
-          <label>
-            até (ISO): <input value={toDate} onChange={e => setToDate(e.target.value)} placeholder="2025-01-31T23:59:59Z"/>
-          </label>
-          <label>
-            conta:
-            <select value={accountId} onChange={e => setAccountId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">Todas</option>
+    <div className="grid gap-4">
+      <div className="card">
+        <div className="card-body">
+          <h3 className="font-semibold mb-3">Filtros</h3>
+          <div className="flex gap-3 flex-wrap items-center">
+            <input className="input w-64" value={fromDate} onChange={e => setFromDate(e.target.value)} placeholder="de (ISO) 2025-01-01T00:00:00Z"/>
+            <input className="input w-64" value={toDate} onChange={e => setToDate(e.target.value)} placeholder="até (ISO) 2025-01-31T23:59:59Z"/>
+            <select className="select w-48" value={accountId} onChange={e => setAccountId(e.target.value ? Number(e.target.value) : '')}>
+              <option value="">Conta (todas)</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
-          </label>
-          <label>
-            categoria:
-            <select value={categoryId} onChange={e => setCategoryId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">Todas</option>
+            <select className="select w-48" value={categoryId} onChange={e => setCategoryId(e.target.value ? Number(e.target.value) : '')}>
+              <option value="">Categoria (todas)</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-          </label>
-          <label>
-            tipo:
-            <select value={typeFilter} onChange={e => setTypeFilter((e.target.value || '') as any)}>
-              <option value="">Todos</option>
+            <select className="select w-40" value={typeFilter} onChange={e => setTypeFilter((e.target.value || '') as any)}>
+              <option value="">Tipo (todos)</option>
               <option value="INCOME">INCOME</option>
               <option value="EXPENSE">EXPENSE</option>
             </select>
-          </label>
-          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input type="checkbox" checked={includeVoided} onChange={e => setIncludeVoided(e.target.checked)} />
-            incluir anuladas (voided)
-          </label>
+            <label className="label inline-flex items-center gap-2">
+              <input type="checkbox" checked={includeVoided} onChange={e => setIncludeVoided(e.target.checked)} />
+              incluir anuladas
+            </label>
+          </div>
         </div>
-      </section>
+      </div>
 
-      <section style={{ display: 'grid', gap: 8 }}>
-        <h3>Criar transação</h3>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label>
-            conta:
-            <select value={cAccountId} onChange={e => setCAccountId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">Selecione</option>
+      <div className="card">
+        <div className="card-body">
+          <h3 className="font-semibold mb-3">Criar transação</h3>
+          <div className="flex gap-3 flex-wrap items-center">
+            <select className="select w-48" value={cAccountId} onChange={e => setCAccountId(e.target.value ? Number(e.target.value) : '')}>
+              <option value="">Conta</option>
               {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
-          </label>
-          <label>
-            categoria:
-            <select value={cCategoryId} onChange={e => setCCategoryId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">(opcional)</option>
+            <select className="select w-48" value={cCategoryId} onChange={e => setCCategoryId(e.target.value ? Number(e.target.value) : '')}>
+              <option value="">Categoria (opcional)</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-          </label>
-          <label>
-            valor:
-            <input value={cAmount} onChange={e => setCAmount(e.target.value)} placeholder="0.00"/>
-          </label>
-          <label>
-            quando (ISO):
-            <input value={cWhen} onChange={e => setCWhen(e.target.value)} />
-          </label>
-          <input value={cDesc} onChange={e => setCDesc(e.target.value)} placeholder="descrição (opcional)" />
-          <button onClick={() => createMut.mutate()} disabled={createMut.isPending || !(cAccountId && cAmount)}>Criar</button>
-          {createMut.isError && <span style={{ color: 'red' }}>Erro ao criar</span>}
+            <input className="input w-36" value={cAmount} onChange={e => setCAmount(e.target.value)} placeholder="0.00"/>
+            <input className="input w-72" value={cWhen} onChange={e => setCWhen(e.target.value)} />
+            <input className="input w-64" value={cDesc} onChange={e => setCDesc(e.target.value)} placeholder="descrição (opcional)" />
+            <button className="btn btn-primary" onClick={() => createMut.mutate()} disabled={createMut.isPending || !(cAccountId && cAmount)}>Criar</button>
+            {createMut.isError && <span className="text-red-500 text-sm">Erro ao criar</span>}
+          </div>
         </div>
-      </section>
+      </div>
 
-      <section>
-        <h3>Lista</h3>
-        <table>
-          <thead>
-            <tr><th>ID</th><th>Conta</th><th>Categoria</th><th>Valor</th><th>Quando</th><th>Ações</th></tr>
-          </thead>
-          <tbody>
-            {items.map(tx => (
-              <tr key={tx.id}>
-                <td>{tx.id}</td>
-                <td>{tx.account_id}</td>
-                <td>{tx.category_id ?? '-'}</td>
-                <td>{tx.amount}</td>
-                <td>{tx.occurred_at}</td>
-                <td>
-                  <button onClick={() => voidMut.mutate(tx.id)} disabled={voidMut.isPending}>Void</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
+      <div className="card">
+        <div className="card-body">
+          <h3 className="font-semibold mb-3">Lista</h3>
+          <table className="table">
+            <thead>
+              <tr><th>ID</th><th>Conta</th><th>Categoria</th><th>Valor</th><th>Quando</th><th>Ações</th></tr>
+            </thead>
+            <tbody>
+              {items.map(tx => (
+                <tr key={tx.id}>
+                  <td>{tx.id}</td>
+                  <td>{tx.account_id}</td>
+                  <td>{tx.category_id ?? '-'}</td>
+                  <td>{tx.amount}</td>
+                  <td className="whitespace-nowrap">{tx.occurred_at}</td>
+                  <td>
+                    <button className="btn btn-ghost" onClick={() => voidMut.mutate(tx.id)} disabled={voidMut.isPending}>Void</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   )
 }
