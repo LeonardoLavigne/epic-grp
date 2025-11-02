@@ -3,6 +3,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from './layout'
 import Home from '../pages/Home'
 import Login from '../pages/Auth/Login'
+import Register from '../pages/Auth/Register'
 import Accounts from '../pages/Fin/Accounts'
 import Categories from '../pages/Fin/Categories'
 import Transactions from '../pages/Fin/Transactions'
@@ -16,7 +17,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
       { path: 'auth/login', element: <Login /> },
-      { path: 'auth/register', element: <(await import('../pages/Auth/Register')).default /> as any },
+      { path: 'auth/register', element: <Register /> },
       {
         element: <RequireAuth />,
         children: [
