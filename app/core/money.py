@@ -24,3 +24,7 @@ def amount_to_cents(amount: Decimal, currency: str) -> int:
     cents = (amount * (Decimal(10) ** exp)).to_integral_value()
     return int(cents)
 
+
+def cents_to_amount(cents: int, currency: str) -> Decimal:
+    exp = currency_exponent(currency)
+    return (Decimal(cents) / (Decimal(10) ** exp)).quantize(Decimal(1).scaleb(-exp))

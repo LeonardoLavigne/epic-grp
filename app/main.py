@@ -5,6 +5,7 @@ from sqlalchemy.engine import make_url
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from app.api.routes.auth import router as auth_router
+from app.api.routes.finance import router as fin_router
 from app.core.security import get_current_user
 from app.schemas.user import UserOut
 from app.core.settings import get_settings
@@ -53,6 +54,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth_router)
+    app.include_router(fin_router)
 
     @app.get("/me", response_model=UserOut)
     async def me(current_user=Depends(get_current_user)):

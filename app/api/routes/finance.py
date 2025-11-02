@@ -1,0 +1,154 @@
+from decimal import Decimal
+import datetime as dt
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.core.security import get_current_user
+from app.db.session import get_session
+from app.models.user import User
+from app.models.finance.account import Account
+from app.models.finance.category import Category
+from app.models.finance.transaction import Transaction
+from app.schemas.finance.account import AccountCreate, AccountOut, AccountUpdate
+from app.schemas.finance.category import CategoryCreate, CategoryOut, CategoryUpdate
+from app.schemas.finance.transaction import TransactionCreate, TransactionOut
+from app.core.money import currency_exponent
+from app.crud.finance.account import create_account as _create_account, list_accounts as _list_accounts, update_account as _update_account
+from app.crud.finance.category import create_category as _create_category, list_categories as _list_categories, update_category as _update_category
+from app.crud.finance.transaction import (
+    create_transaction as _create_transaction,
+    list_transactions as _list_transactions,
+    update_transaction_amount as _update_transaction_amount,
+)
+
+
+router = APIRouter(prefix="/fin", tags=["finances"])
+
+
+def _present_tx(tx: Transaction, currency: str) -> TransactionOut:
+    exp = currency_exponent(currency)
+    amount = (Decimal(tx.amount_cents) / (Decimal(10) ** exp)).quantize(Decimal(1).scaleb(-exp))
+    occ = tx.occurred_at
+    if occ.tzinfo is None:
+        occ = occ.replace(tzinfo=dt.timezone.utc)
+    else:
+        occ = occ.astimezone(dt.timezone.utc)
+    return TransactionOut(
+        id=tx.id,
+        account_id=tx.account_id,
+        category_id=tx.category_id,
+        amount=amount,
+        occurred_at=occ,
+        description=tx.description,
+    )
+
+
+@router.get("/accounts", response_model=List[AccountOut])
+async def list_accounts(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    items = await _list_accounts(session, user_id=current_user.id)
+    return items
+
+
+@router.post("/accounts", response_model=AccountOut, status_code=status.HTTP_201_CREATED)
+async def create_account(
+    data: AccountCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    return await _create_account(session, user_id=current_user.id, data=data)
+
+
+@router.patch("/accounts/{account_id}", response_model=AccountOut)
+async def update_account(
+    account_id: int,
+    data: AccountUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    acc = await _update_account(session, user_id=current_user.id, account_id=account_id, data=data)
+    if not acc:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return acc
+
+
+@router.get("/categories", response_model=List[CategoryOut])
+async def list_categories(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    return await _list_categories(session, user_id=current_user.id)
+
+
+@router.post("/categories", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
+async def create_category(
+    data: CategoryCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    return await _create_category(session, user_id=current_user.id, data=data)
+
+
+@router.patch("/categories/{category_id}", response_model=CategoryOut)
+async def update_category(
+    category_id: int,
+    data: CategoryUpdate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    cat = await _update_category(session, user_id=current_user.id, category_id=category_id, data=data)
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return cat
+
+
+@router.get("/transactions", response_model=List[TransactionOut])
+async def list_transactions(
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    items = await _list_transactions(session, user_id=current_user.id)
+    # fetch account currency for each (could optimize later)
+    # Simple approach: assume one currency per account
+    result: list[TransactionOut] = []
+    for tx in items:
+        acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
+        currency = acc.currency if acc else "EUR"
+        result.append(_present_tx(tx, currency))
+    return result
+
+
+@router.post("/transactions", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
+async def create_transaction(
+    data: TransactionCreate,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    tx = await _create_transaction(session, user_id=current_user.id, data=data)
+    acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
+    currency = acc.currency if acc else "EUR"
+    return _present_tx(tx, currency)
+
+
+@router.patch("/transactions/{transaction_id}/amount", response_model=TransactionOut)
+async def update_transaction_amount(
+    transaction_id: int,
+    data: dict,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    if "amount" not in data:
+        raise HTTPException(status_code=422, detail="amount required")
+    try:
+        amount = Decimal(str(data["amount"]))
+    except Exception:
+        raise HTTPException(status_code=422, detail="invalid amount")
+    tx = await _update_transaction_amount(session, user_id=current_user.id, transaction_id=transaction_id, amount=amount)
+    acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
+    currency = acc.currency if acc else "EUR"
+    return _present_tx(tx, currency)
