@@ -1,4 +1,4 @@
-from sqlalchemy import String, ForeignKey, BigInteger, Numeric, Boolean
+from sqlalchemy import String, ForeignKey, BigInteger, Numeric, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 import datetime as dt
 
@@ -21,5 +21,5 @@ class Transfer(TimestampMixin, Base):
     rate_quote: Mapped[str] = mapped_column(String(3))
     rate_value: Mapped[float] = mapped_column(Numeric(18, 10))
 
-    occurred_at: Mapped[dt.datetime]
+    occurred_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
     voided: Mapped[bool] = mapped_column(Boolean, default=False)
