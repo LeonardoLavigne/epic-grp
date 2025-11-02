@@ -4,6 +4,8 @@ import { AppLayout } from './layout'
 import Home from '../pages/Home'
 import Login from '../pages/Auth/Login'
 import Accounts from '../pages/Fin/Accounts'
+import Categories from '../pages/Fin/Categories'
+import Transactions from '../pages/Fin/Transactions'
 import { RequireAuth } from '../shared/auth/RequireAuth'
 
 export const router = createBrowserRouter([
@@ -17,6 +19,8 @@ export const router = createBrowserRouter([
         element: <RequireAuth />,
         children: [
           { path: 'fin/accounts', element: <Accounts /> },
+          { path: 'fin/categories', element: <Categories /> },
+          { path: 'fin/transactions', element: <Transactions /> },
         ],
       },
     ],

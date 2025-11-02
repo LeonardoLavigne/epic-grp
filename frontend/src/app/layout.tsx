@@ -9,6 +9,8 @@ export const AppLayout: React.FC = () => {
           <Link to="/">Home</Link>
           <Link to="/auth/login">Login</Link>
           <Link to="/fin/accounts">Accounts</Link>
+          <Link to="/fin/categories">Categories</Link>
+          <Link to="/fin/transactions">Transactions</Link>
         </nav>
       </header>
       <main style={{ padding: 16 }}>
