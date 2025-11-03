@@ -19,6 +19,7 @@ from app.schemas.finance.transaction import TransactionCreate, TransactionOut, T
 from app.schemas.finance.transfer import TransferCreate, TransferResponse, TransferOut
 from app.core.money import currency_exponent, cents_to_amount
 from app.schemas.finance.reports import BalanceByAccountItem, MonthlyByCategoryItem
+from app.services.fx import get_rate, RateNotFound
 from app.core.modules import require_module
 from app.crud.finance.account import (
     create_account as _create_account,
@@ -542,6 +543,7 @@ async def balance_by_account(
     month: int | None = None,
     include_closed: bool = False,
     include_inactive: bool = False,
+    report_currency: str | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 )-> List[BalanceByAccountItem]:
@@ -554,7 +556,11 @@ async def balance_by_account(
     if not include_closed:
         acc_rows = [a for a in acc_rows if getattr(a, "status", "ACTIVE") != "CLOSED"]
     # Initialize map
-    totals: dict[int, int] = {a.id: 0 for a in acc_rows}
+    totals_cents: dict[int, int] = {a.id: 0 for a in acc_rows}
+    totals_report: dict[int, Decimal] | None = None
+    target = (report_currency or "").upper() or None
+    if target:
+        totals_report = {a.id: Decimal("0") for a in acc_rows}
 
     # Fetch transactions with categories (exclude voided)
     tx_rows = (await session.execute(
@@ -581,12 +587,33 @@ async def balance_by_account(
         sign = 1
         if cat is not None and cat.type.upper() == "EXPENSE":
             sign = -1
-        totals[tx.account_id] = totals.get(tx.account_id, 0) + (sign * tx.amount_cents)
+        if target and acc:
+            src_cur = acc.currency
+            amt_dec = cents_to_amount(tx.amount_cents, src_cur)
+            if src_cur.upper() == target:
+                val = amt_dec * Decimal(sign)
+            else:
+                try:
+                    rate = await get_rate(session, date=occ.date(), base=src_cur, quote=target)
+                except RateNotFound:
+                    raise HTTPException(status_code=422, detail="missing fx rate for conversion")
+                val = (amt_dec * rate) * Decimal(sign)
+            assert totals_report is not None
+            totals_report[tx.account_id] = totals_report.get(tx.account_id, Decimal("0")) + val
+        else:
+            totals_cents[tx.account_id] = totals_cents.get(tx.account_id, 0) + (sign * tx.amount_cents)
 
     # Present
     out: list[BalanceByAccountItem] = []
     for a in acc_rows:
-        out.append(BalanceByAccountItem(account_id=a.id, currency=a.currency, balance=cents_to_amount(totals.get(a.id, 0), a.currency)))
+        if target and totals_report is not None:
+            cur = target
+            bal = totals_report.get(a.id, Decimal("0"))
+            # round to target exponent
+            from app.core.money import quantize_amount
+            out.append(BalanceByAccountItem(account_id=a.id, currency=cur, balance=quantize_amount(bal, cur)))
+        else:
+            out.append(BalanceByAccountItem(account_id=a.id, currency=a.currency, balance=cents_to_amount(totals_cents.get(a.id, 0), a.currency)))
     return out
 
 
@@ -596,6 +623,7 @@ async def monthly_by_category(
     month: int,
     include_closed: bool = False,
     include_inactive: bool = False,
+    report_currency: str | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 )-> List[MonthlyByCategoryItem]:
@@ -609,7 +637,11 @@ async def monthly_by_category(
     )).all()
 
     # Aggregate in Python for the given year/month
-    agg: dict[tuple[int, str, str], int] = {}
+    agg_cents: dict[tuple[int, str, str], int] = {}
+    agg_report: dict[tuple[int, str, str], Decimal] | None = None
+    target = (report_currency or "").upper() or None
+    if target:
+        agg_report = {}
     for tx, cat, acc in rows:
         occ = tx.occurred_at
         if occ.tzinfo is not None:
@@ -628,12 +660,28 @@ async def monthly_by_category(
             continue
         key = (cat.id, cat.type.upper(), cat.name)
         sign = -1 if cat.type.upper() == "EXPENSE" else 1
-        agg[key] = agg.get(key, 0) + sign * tx.amount_cents
+        if target and acc:
+            src_cur = acc.currency
+            amt_dec = cents_to_amount(tx.amount_cents, src_cur)
+            if src_cur.upper() == target:
+                val = amt_dec * Decimal(sign)
+            else:
+                try:
+                    rate = await get_rate(session, date=occ.date(), base=src_cur, quote=target)
+                except RateNotFound:
+                    raise HTTPException(status_code=422, detail="missing fx rate for conversion")
+                val = (amt_dec * rate) * Decimal(sign)
+            assert agg_report is not None
+            agg_report[key] = agg_report.get(key, Decimal("0")) + val
+        else:
+            agg_cents[key] = agg_cents.get(key, 0) + sign * tx.amount_cents
 
     out: list[MonthlyByCategoryItem] = []
-    for (cat_id, typ, name), cents in agg.items():
-        # Use account currency; mixed-currency not handled yet (future work)
-        # Pick first account currency seen (acc.currency not stored in key)
-        # For now assume EUR as agreed default
-        out.append(MonthlyByCategoryItem(category_id=cat_id, category_name=name, type=typ, total=cents_to_amount(cents, "EUR")))
+    if target and agg_report is not None:
+        from app.core.money import quantize_amount
+        for (cat_id, typ, name), dec_total in agg_report.items():
+            out.append(MonthlyByCategoryItem(category_id=cat_id, category_name=name, type=typ, total=quantize_amount(dec_total, target)))
+    else:
+        for (cat_id, typ, name), cents in agg_cents.items():
+            out.append(MonthlyByCategoryItem(category_id=cat_id, category_name=name, type=typ, total=cents_to_amount(cents, "EUR")))
     return out
