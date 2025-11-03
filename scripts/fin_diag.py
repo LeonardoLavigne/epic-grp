@@ -2,7 +2,14 @@ import argparse
 import asyncio
 import datetime as dt
 import os
+import sys
+from pathlib import Path
 from decimal import Decimal
+
+# Ensure project root is on sys.path when running as a script
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import select
@@ -95,4 +102,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
