@@ -65,3 +65,32 @@ BREAKING CHANGE: endpoints passam a exigir owner_id
 - TDD, DRY, KISS e YAGNI: PRs pequenos, objetivos e com testes.
 - Gestão de segredos: `.env` não versionado; não inclua credenciais em commits/PRs.
 - Empacotamento: use `uv` (pip é proibido neste projeto).
+
+## Arquitetura e regras de importação
+
+Camadas atuais (app/), em ordem do topo para base:
+- `app.api` (endpoints FastAPI)
+- `app.crud` (operações de persistência/validações de domínio simples)
+- `app.schemas` (Pydantic)
+- `app.services` (serviços de domínio e integrações, ex.: FX service)
+- `app.models` (ORM/entidades persistidas)
+- `app.core` (infra comum: settings, segurança, dinheiro, middleware, etc.)
+
+Regras (import-linter):
+- Somente camadas superiores podem importar camadas inferiores (downward-only). Exemplos:
+  - `app.api` pode importar `crud/schemas/services/models/core`.
+  - `app.crud` pode importar `schemas/services/models/core`.
+  - `app.models` não deve importar `api/crud/schemas/services`.
+- Ninguém (exceto `app.main`) deve importar `app.api.*`:
+  - Ignorado explicitamente: `app.main -> app.api.*`.
+
+Como rodar o verificador de imports:
+- Configuração: `.importlinter` na raiz do repositório.
+- Executar localmente:
+  - `uv run import-linter lint`
+- CI: pode ser adicionado como etapa opcional (antes dos testes).
+
+Notas de migração (Finance → hexagonal por arquivos):
+- Fase 1: dividir `app/api/routes/finance.py` em múltiplos módulos sob `app/api/routes/finance/` (accounts, categories, transactions, transfers, reports, fx_rates) mantendo a mesma API.
+- Fase 2: introduzir `application/use_cases` onde houver ganho real (ex.: transfers/reports); não criar camadas vazias (YAGNI).
+- Futuro: `modules/<domínio>/…` (hexagonal completo) quando o volume de regras justificar; eventos (core/events) mínimos desde que apareçam os primeiros casos cross-módulo.
