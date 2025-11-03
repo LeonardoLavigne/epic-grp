@@ -116,6 +116,12 @@ uv run alembic upgrade head
 uv run pytest -q
 ```
 
+- Checagem de tipos (mypy):
+
+```bash
+uv run mypy app
+```
+
 - Lint/format:
 
 ```bash
@@ -126,6 +132,16 @@ uv run black .
 ## Observações
 - Este projeto não usa `pip`. Utilize sempre os comandos de projeto do `uv` (`uv init`, `uv add`, `uv sync`, `uv run`, `uv lock`, etc.).
 - `uv run --no-sync` pode ser usado quando o ambiente já estiver sincronizado.
+
+### Git hooks (pre-commit)
+
+- O repositório inclui um hook opcional que executa `mypy` e `pytest` antes dos commits. Para habilitar:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Você pode desabilitar temporariamente com `--no-verify` em um commit, caso necessário.
 
 ## Observabilidade e Saúde
 - Endpoints de saúde:
