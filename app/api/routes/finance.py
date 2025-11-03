@@ -430,10 +430,11 @@ async def create_transfer(
         vet_2dp=_q2(Decimal(str(tr.vet_value)) if tr.vet_value is not None else None),
         ref_rate_2dp=_q2(Decimal(str(tr.ref_rate_value)) if tr.ref_rate_value is not None else None),
     )
-    # fees derived if both fx and vet present
-    if out.fx_rate_2dp is not None and out.vet_2dp is not None and out.fx_rate_2dp != 0:
-        out.fees_per_unit_2dp = (out.vet_2dp - out.fx_rate_2dp).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        out.fees_pct = ((out.vet_2dp / out.fx_rate_2dp) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    # fees derived preferencing reference FX when available
+    base_fx = out.ref_rate_2dp or out.fx_rate_2dp
+    if base_fx is not None and out.vet_2dp is not None and base_fx != 0:
+        out.fees_per_unit_2dp = (out.vet_2dp - base_fx).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        out.fees_pct = ((out.vet_2dp / base_fx) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return TransferResponse(transfer=out, src_transaction_id=tx_out.id, dst_transaction_id=tx_in.id)
 
 
@@ -462,9 +463,10 @@ async def get_transfer(
         vet_2dp=_q2(Decimal(str(tr.vet_value)) if tr.vet_value is not None else None),
         ref_rate_2dp=_q2(Decimal(str(tr.ref_rate_value)) if tr.ref_rate_value is not None else None),
     )
-    if out.fx_rate_2dp is not None and out.vet_2dp is not None and out.fx_rate_2dp != 0:
-        out.fees_per_unit_2dp = (out.vet_2dp - out.fx_rate_2dp).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        out.fees_pct = ((out.vet_2dp / out.fx_rate_2dp) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    base_fx = out.ref_rate_2dp or out.fx_rate_2dp
+    if base_fx is not None and out.vet_2dp is not None and base_fx != 0:
+        out.fees_per_unit_2dp = (out.vet_2dp - base_fx).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        out.fees_pct = ((out.vet_2dp / base_fx) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return out
 
 
@@ -493,9 +495,10 @@ async def void_transfer(
         vet_2dp=_q2(Decimal(str(tr.vet_value)) if tr.vet_value is not None else None),
         ref_rate_2dp=_q2(Decimal(str(tr.ref_rate_value)) if tr.ref_rate_value is not None else None),
     )
-    if out.fx_rate_2dp is not None and out.vet_2dp is not None and out.fx_rate_2dp != 0:
-        out.fees_per_unit_2dp = (out.vet_2dp - out.fx_rate_2dp).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        out.fees_pct = ((out.vet_2dp / out.fx_rate_2dp) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    base_fx = out.ref_rate_2dp or out.fx_rate_2dp
+    if base_fx is not None and out.vet_2dp is not None and base_fx != 0:
+        out.fees_per_unit_2dp = (out.vet_2dp - base_fx).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        out.fees_pct = ((out.vet_2dp / base_fx) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return out
 
 
