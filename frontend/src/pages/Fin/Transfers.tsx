@@ -125,12 +125,9 @@ export default function Transfers() {
               <div><b>ID:</b> {fetched.id}</div>
               <div><b>Contas:</b> {fetched.src_account_id} → {fetched.dst_account_id}</div>
               <div><b>Valores:</b> {fetched.src_amount} → {fetched.dst_amount}</div>
-              <div><b>FX:</b> {fetched.ref_rate_2dp ?? fetched.fx_rate_2dp ?? fetched.rate_value} ({fetched.rate_base}/{fetched.rate_quote})</div>
+              <div><b>{(fetched.ref_rate_2dp ? 'FX (ref)' : 'FX')}:</b> {fetched.ref_rate_2dp ?? fetched.fx_rate_2dp ?? fetched.rate_value} ({fetched.rate_base}/{fetched.rate_quote})</div>
               {typeof fetched.vet_2dp !== 'undefined' && (
                 <div><b>VET:</b> {fetched.vet_2dp}</div>
-              )}
-              {typeof fetched.ref_rate_2dp !== 'undefined' && (
-                <div><b>Ref:</b> {fetched.ref_rate_2dp}</div>
               )}
               {typeof fetched.fees_per_unit_2dp !== 'undefined' && (
                 <div><b>Taxas implícitas:</b> {fetched.fees_per_unit_2dp}{fetched.fees_pct ? ` (${fetched.fees_pct}%)` : ''}</div>
