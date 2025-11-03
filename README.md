@@ -139,6 +139,10 @@ uv run black .
 
 ```bash
 git config core.hooksPath .githooks
+
+Nota sobre uv/Codex CLI
+- O hook define `UV_CACHE_DIR=.uv-cache` para evitar erros de permissão no cache global do `uv`.
+- Em ambientes com sandbox (ex.: Codex CLI), a execução do `pytest` pode exigir permissão elevada. Se necessário, rode os testes localmente ou solicite elevação no ambiente do agente.
 ```
 
 Você pode desabilitar temporariamente com `--no-verify` em um commit, caso necessário.
