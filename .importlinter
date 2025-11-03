@@ -1,0 +1,29 @@
+[importlinter]
+root_packages =
+  app
+
+[contract: app_layers]
+name = Enforce app layering
+type = layers
+layers =
+  app.api
+  app.crud
+  app.schemas
+  app.services
+  app.models
+  app.core
+
+[contract: no_import_api_from_lower]
+name = Prevent lower layers importing API
+type = forbidden
+source_modules =
+  app.crud
+  app.schemas
+  app.services
+  app.models
+  app.core
+forbidden_modules =
+  app.api
+ignore_imports =
+  app.main -> app.api.*
+
