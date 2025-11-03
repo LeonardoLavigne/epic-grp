@@ -2,7 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP
 import datetime as dt
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -18,9 +18,11 @@ from app.schemas.finance.category import CategoryCreate, CategoryOut, CategoryUp
 from app.schemas.finance.transaction import TransactionCreate, TransactionOut, TransactionUpdate
 from app.schemas.finance.transfer import TransferCreate, TransferResponse, TransferOut
 from app.core.money import currency_exponent, cents_to_amount
+from app.schemas.finance.fx_rate_api import FxRateUpsert, FxRateOut
 from app.schemas.finance.reports import BalanceByAccountItem, MonthlyByCategoryItem
 from app.services.fx import get_rate, RateNotFound
 from app.core.modules import require_module
+from app.models.finance.fx_rate import FxRate
 from app.crud.finance.account import (
     create_account as _create_account,
     list_accounts as _list_accounts,
@@ -684,4 +686,64 @@ async def monthly_by_category(
     else:
         for (cat_id, typ, name), cents in agg_cents.items():
             out.append(MonthlyByCategoryItem(category_id=cat_id, category_name=name, type=typ, total=cents_to_amount(cents, "EUR")))
+    return out
+
+
+# FX rates endpoints (FIN-011)
+from fastapi import Response
+
+
+@router.post("/fx-rates", status_code=status.HTTP_201_CREATED)
+async def upsert_fx_rate(payload: FxRateUpsert, response: Response, session: AsyncSession = Depends(get_session)) -> dict:
+    base = payload.base.upper()
+    quote = payload.quote.upper()
+    if base == quote:
+        raise HTTPException(status_code=422, detail="base must differ from quote")
+    # check if exists
+    res = await session.execute(
+        select(FxRate).where(FxRate.date == payload.date, FxRate.base == base, FxRate.quote == quote)
+    )
+    row = res.scalars().first()
+    if row:
+        row.rate_value = payload.rate
+        session.add(row)
+        await session.commit()
+        # Override default 201 with 200 for updates
+        response.status_code = status.HTTP_200_OK
+        return {"status": "updated"}
+    fx = FxRate(date=payload.date, base=base, quote=quote, rate_value=payload.rate)
+    session.add(fx)
+    await session.commit()
+    return {"status": "created"}
+
+
+@router.get("/fx-rates", response_model=List[FxRateOut])
+async def list_fx_rates(
+    base: str,
+    quote: str,
+    from_: str = Query(alias="from"),
+    to: str = Query(alias="to"),
+    session: AsyncSession = Depends(get_session),
+):
+    b = (base or "").upper()
+    q = (quote or "").upper()
+    if b == q:
+        raise HTTPException(status_code=422, detail="base must differ from quote")
+    try:
+        dfrom = dt.date.fromisoformat(from_)
+        dto = dt.date.fromisoformat(to)
+    except Exception:
+        raise HTTPException(status_code=422, detail="invalid date format")
+    if dfrom > dto:
+        raise HTTPException(status_code=422, detail="invalid range")
+    rows = (
+        await session.execute(
+            select(FxRate.date, FxRate.rate_value)
+            .where(FxRate.base == b, FxRate.quote == q, FxRate.date >= dfrom, FxRate.date <= dto)
+            .order_by(FxRate.date.asc())
+        )
+    ).all()
+    out: list[FxRateOut] = []
+    for (d, r) in rows:
+        out.append(FxRateOut(date=d, rate=Decimal(str(r))))
     return out
