@@ -4,7 +4,15 @@ import { api } from '../../shared/api/client'
 
 interface Account { id: number; name: string }
 interface Category { id: number; name: string; type: 'INCOME' | 'EXPENSE' }
-interface Transaction { id: number; account_id: number; category_id: number | null; amount: string; occurred_at: string; description?: string }
+interface Transaction {
+  id: number
+  account_id: number
+  category_id: number | null
+  amount: string
+  occurred_at: string
+  description?: string
+  from_transfer: boolean
+}
 
 export default function Transactions() {
   const qc = useQueryClient()
@@ -125,13 +133,25 @@ export default function Transactions() {
             <tbody>
               {items.map(tx => (
                 <tr key={tx.id}>
-                  <td>{tx.id}</td>
+                  <td className="whitespace-nowrap">
+                    {tx.id}
+                    {tx.from_transfer && (
+                      <span className="ml-2 text-xs rounded bg-slate-100 px-2 py-0.5 text-slate-600" title="originou de transferência">transfer</span>
+                    )}
+                  </td>
                   <td>{tx.account_id}</td>
                   <td>{tx.category_id ?? '-'}</td>
                   <td>{tx.amount}</td>
                   <td className="whitespace-nowrap">{tx.occurred_at}</td>
                   <td>
-                    <button className="btn btn-ghost" onClick={() => voidMut.mutate(tx.id)} disabled={voidMut.isPending}>Void</button>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => { if (!tx.from_transfer) voidMut.mutate(tx.id) }}
+                      disabled={voidMut.isPending || tx.from_transfer}
+                      title={tx.from_transfer ? 'Transação de transferência: gerencie pelo menu de transferências' : 'Anular transação'}
+                    >
+                      Void
+                    </button>
                   </td>
                 </tr>
               ))}
