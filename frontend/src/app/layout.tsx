@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../shared/auth/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../shared/ui/Button'
+import { ReadyIndicator } from '../shared/ui/ReadyIndicator'
 
 export const AppLayout: React.FC = () => {
   const { isAuthenticated, logout } = useAuth()
@@ -27,7 +28,8 @@ export const AppLayout: React.FC = () => {
             <NavLink to="/fin/transfers" className={linkClass}>Transfers</NavLink>
             <NavLink to="/fin/reports/balance-by-account" className={linkClass}>Reports</NavLink>
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-4">
+            <ReadyIndicator />
             {!isAuthenticated && <Link to="/auth/login" className="btn btn-ghost">Login</Link>}
             {!isAuthenticated && <Link to="/auth/register" className="btn btn-primary">Register</Link>}
             {isAuthenticated && <Button onClick={onLogout} variant="ghost">Logout</Button>}
