@@ -39,10 +39,15 @@ class TransferOut(BaseModel):
     rate_base: str
     rate_quote: str
     occurred_at: dt.datetime
+    # Derived/presentation fields (optional)
+    fx_rate_2dp: Decimal | None = None
+    vet_2dp: Decimal | None = None
+    ref_rate_2dp: Decimal | None = None
+    fees_per_unit_2dp: Decimal | None = None
+    fees_pct: Decimal | None = None
 
 
 class TransferResponse(BaseModel):
     transfer: TransferOut
     src_transaction_id: int
     dst_transaction_id: int
-

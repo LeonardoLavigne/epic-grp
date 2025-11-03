@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import datetime as dt
 from typing import List
 
@@ -396,6 +396,12 @@ async def update_transaction_amount(
     return _present_tx(tx, currency)
 
 
+def _q2(v: Decimal | None) -> Decimal | None:
+    if v is None:
+        return None
+    return v.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
 @router.post("/transfers", response_model=TransferResponse, status_code=status.HTTP_201_CREATED)
 async def create_transfer(
     data: TransferCreate,
@@ -420,7 +426,14 @@ async def create_transfer(
         rate_base=tr.rate_base,
         rate_quote=tr.rate_quote,
         occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
+        fx_rate_2dp=_q2(Decimal(str(tr.rate_value))),
+        vet_2dp=_q2(Decimal(str(tr.vet_value)) if tr.vet_value is not None else None),
+        ref_rate_2dp=_q2(Decimal(str(tr.ref_rate_value)) if tr.ref_rate_value is not None else None),
     )
+    # fees derived if both fx and vet present
+    if out.fx_rate_2dp is not None and out.vet_2dp is not None and out.fx_rate_2dp != 0:
+        out.fees_per_unit_2dp = (out.vet_2dp - out.fx_rate_2dp).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        out.fees_pct = ((out.vet_2dp / out.fx_rate_2dp) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return TransferResponse(transfer=out, src_transaction_id=tx_out.id, dst_transaction_id=tx_in.id)
 
 
@@ -435,7 +448,7 @@ async def get_transfer(
         raise HTTPException(status_code=404, detail="Transfer not found")
     src_amount = cents_to_amount(tr.src_amount_cents, tr.rate_base)
     dst_amount = cents_to_amount(tr.dst_amount_cents, tr.rate_quote)
-    return TransferOut(
+    out = TransferOut(
         id=tr.id,
         src_account_id=tr.src_account_id,
         dst_account_id=tr.dst_account_id,
@@ -445,7 +458,14 @@ async def get_transfer(
         rate_base=tr.rate_base,
         rate_quote=tr.rate_quote,
         occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
+        fx_rate_2dp=_q2(Decimal(str(tr.rate_value))),
+        vet_2dp=_q2(Decimal(str(tr.vet_value)) if tr.vet_value is not None else None),
+        ref_rate_2dp=_q2(Decimal(str(tr.ref_rate_value)) if tr.ref_rate_value is not None else None),
     )
+    if out.fx_rate_2dp is not None and out.vet_2dp is not None and out.fx_rate_2dp != 0:
+        out.fees_per_unit_2dp = (out.vet_2dp - out.fx_rate_2dp).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        out.fees_pct = ((out.vet_2dp / out.fx_rate_2dp) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return out
 
 
 @router.post("/transfers/{transfer_id}/void", response_model=TransferOut)
@@ -459,7 +479,7 @@ async def void_transfer(
         raise HTTPException(status_code=404, detail="Transfer not found")
     src_amount = cents_to_amount(tr.src_amount_cents, tr.rate_base)
     dst_amount = cents_to_amount(tr.dst_amount_cents, tr.rate_quote)
-    return TransferOut(
+    out = TransferOut(
         id=tr.id,
         src_account_id=tr.src_account_id,
         dst_account_id=tr.dst_account_id,
@@ -469,7 +489,14 @@ async def void_transfer(
         rate_base=tr.rate_base,
         rate_quote=tr.rate_quote,
         occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
+        fx_rate_2dp=_q2(Decimal(str(tr.rate_value))),
+        vet_2dp=_q2(Decimal(str(tr.vet_value)) if tr.vet_value is not None else None),
+        ref_rate_2dp=_q2(Decimal(str(tr.ref_rate_value)) if tr.ref_rate_value is not None else None),
     )
+    if out.fx_rate_2dp is not None and out.vet_2dp is not None and out.fx_rate_2dp != 0:
+        out.fees_per_unit_2dp = (out.vet_2dp - out.fx_rate_2dp).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        out.fees_pct = ((out.vet_2dp / out.fx_rate_2dp) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return out
 
 
 @router.post("/transactions/{transaction_id}/void", response_model=TransactionOut)
