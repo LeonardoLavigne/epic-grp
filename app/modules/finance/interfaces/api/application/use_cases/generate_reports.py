@@ -3,7 +3,11 @@ from decimal import Decimal
 import datetime as dt
 from typing import List
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.money import cents_to_amount, quantize_amount
+from app.models.finance.account import Account
+from app.models.finance.transaction import Transaction
 from app.services.fx import get_rate, RateNotFound
 
 
