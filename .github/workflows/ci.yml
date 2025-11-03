@@ -22,6 +22,9 @@ jobs:
       - name: Sync dependencies (prod + dev)
         run: uv sync --all-extras --group dev
 
+      - name: Import linter
+        run: uv run lint-imports --verbose
+
       - name: Type check (mypy)
         run: uv run mypy app
 
