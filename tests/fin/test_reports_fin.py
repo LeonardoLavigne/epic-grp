@@ -179,3 +179,29 @@ def test_reports_exclude_voided_and_include_transfers(client, app):
     rb3 = client.get(f"/fin/reports/balance-by-account?year={now.year}&month={now.month}")
     rows3 = rb3.json(); by_id3 = { r["account_id"]: r for r in rows3 }
     assert by_id3[eur]["balance"] == "-1.00"
+
+
+def test_balance_includes_inactive_categories(client, app):
+    async def _get_user1():
+        return User(id=1, email="rep1@example.com", hashed_password="x")
+    app.dependency_overrides[get_current_user] = _get_user1
+
+    # Account in EUR
+    eur = client.post("/fin/accounts", json={"name": "EUR_ACC2", "currency": "EUR"}).json()["id"]
+    # Create an income and expense category, then deactivate
+    c_inc = client.post("/fin/categories", json={"name": "TestInc", "type": "INCOME"}).json()["id"]
+    c_exp = client.post("/fin/categories", json={"name": "TestExp", "type": "EXPENSE"}).json()["id"]
+    client.post(f"/fin/categories/{c_inc}/deactivate")
+    client.post(f"/fin/categories/{c_exp}/deactivate")
+
+    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    when = now.isoformat()
+    # Create tx referencing inactive categories; they should count in account balance
+    assert client.post("/fin/transactions", json={"account_id": eur, "category_id": c_inc, "amount": "10.00", "occurred_at": when}).status_code == 201
+    assert client.post("/fin/transactions", json={"account_id": eur, "category_id": c_exp, "amount": "3.00", "occurred_at": when}).status_code == 201
+
+    rb = client.get(f"/fin/reports/balance-by-account?year={now.year}&month={now.month}")
+    assert rb.status_code == 200
+    rows = rb.json(); by_id = { r["account_id"]: r for r in rows }
+    # 10 - 3 = 7.00 should be counted regardless of category active state
+    assert by_id[eur]["balance"] == "7.00"

@@ -559,9 +559,9 @@ async def balance_by_account(
         # skip transactions from closed accounts unless included
         if not include_closed and acc and getattr(acc, "status", "ACTIVE") == "CLOSED":
             continue
-        # skip inactive categories unless included
-        if not include_inactive and cat is not None and not bool(getattr(cat, "active", True)):
-            continue
+        # IMPORTANT: For balance-by-account, category active/inactive must NOT
+        # exclude the transaction from the account balance; category is a label.
+        # Therefore, do not filter out inactive categories here.
         sign = 1
         if cat is not None and cat.type.upper() == "EXPENSE":
             sign = -1
