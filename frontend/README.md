@@ -13,3 +13,9 @@ Scripts:
 
 Env:
 - `VITE_API_URL` (ex.: http://localhost:8000)
+
+Páginas e Notas
+- Auth: Login, Registro
+- Finanças: Contas, Categorias, Transações, Transferências, Relatórios
+- Observabilidade: indicador /ready e ReqID
+- Transações: itens com `from_transfer=true` (vindos de Transferências) são somente leitura nesta tela; ações como Void/edição permanecem desabilitadas. Para anulá-las, utilize o fluxo de Transferências.
