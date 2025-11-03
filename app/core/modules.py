@@ -1,3 +1,4 @@
+from typing import Callable, Awaitable
 from fastapi import Depends, HTTPException, status
 
 from app.core.settings import get_settings, Settings
@@ -5,7 +6,7 @@ from app.models.user import User
 from app.core.security import get_current_user
 
 
-def require_module(module: str):
+def require_module(module: str) -> Callable[..., Awaitable[None]]:
     async def _dep(
         current_user: User = Depends(get_current_user),
         settings: Settings = Depends(get_settings),
@@ -17,4 +18,3 @@ def require_module(module: str):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Module 'health' disabled")
 
     return _dep
-

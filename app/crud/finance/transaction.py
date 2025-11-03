@@ -109,6 +109,8 @@ async def update_transaction(
     # account for currency rules
     acc = await _get_account_for_user(session, user_id=user_id, account_id=tx.account_id)
     if data.amount is not None:
+        if not acc:
+            raise ValueError("account not found for transaction")
         validate_amount_for_currency(data.amount, acc.currency)
         tx.amount_cents = amount_to_cents(data.amount, acc.currency)
     if data.category_id is not None:

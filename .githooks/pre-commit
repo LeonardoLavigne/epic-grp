@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[pre-commit] Running mypy (type check)..."
+uv run mypy app
+
+echo "[pre-commit] Running tests (pytest)..."
+uv run pytest -q
+
+echo "[pre-commit] OK"
+

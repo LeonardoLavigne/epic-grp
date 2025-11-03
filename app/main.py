@@ -1,3 +1,5 @@
+from typing import Any, Dict
+from collections.abc import AsyncIterator
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -8,6 +10,7 @@ from contextlib import asynccontextmanager
 from app.api.routes.auth import router as auth_router
 from app.api.routes.finance import router as fin_router
 from app.core.security import get_current_user
+from app.models.user import User
 from app.schemas.user import UserOut
 from app.core.settings import get_settings
 from app.middleware.access_log import AccessLogMiddleware
@@ -15,7 +18,7 @@ from app.middleware.access_log import AccessLogMiddleware
 
 def create_app() -> FastAPI:
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Load .env into process env
         load_dotenv()
 
@@ -69,15 +72,15 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/health")
-    async def health():
+    async def health() -> Dict[str, str]:
         return {"status": "ok"}
 
     app.include_router(auth_router)
     app.include_router(fin_router)
 
     @app.get("/me", response_model=UserOut)
-    async def me(current_user=Depends(get_current_user)):
-        return current_user
+    async def me(current_user: User = Depends(get_current_user)) -> UserOut:
+        return UserOut.model_validate(current_user)
 
     # Readiness endpoint: checks DB connectivity
     from sqlalchemy import text
@@ -85,7 +88,7 @@ def create_app() -> FastAPI:
     from app.db.session import get_session
 
     @app.get("/ready")
-    async def ready(session: AsyncSession = Depends(get_session)):
+    async def ready(session: AsyncSession = Depends(get_session)) -> Dict[str, str]:
         await session.execute(text("SELECT 1"))
         return {"status": "ok"}
 

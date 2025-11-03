@@ -1,4 +1,5 @@
 from decimal import Decimal, ROUND_HALF_UP
+import datetime as dt
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +11,6 @@ from app.models.finance.transfer import Transfer
 from app.core.money import currency_exponent, amount_to_cents, validate_amount_for_currency
 from app.schemas.finance.transfer import TransferCreate
 from app.services.fx import get_rate, RateNotFound
-from decimal import Decimal
 
 
 TRANSFER_IN_NAME = "Transfer In"

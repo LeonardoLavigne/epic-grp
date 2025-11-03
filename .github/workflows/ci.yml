@@ -19,8 +19,11 @@ jobs:
       - name: Install Python 3.14 with uv
         run: uv python install 3.14
 
-      - name: Sync dependencies
-        run: uv sync --all-extras
+      - name: Sync dependencies (prod + dev)
+        run: uv sync --all-extras --group dev
+
+      - name: Type check (mypy)
+        run: uv run mypy app
 
       - name: Run tests
         run: uv run pytest -q
