@@ -182,7 +182,10 @@ async def deactivate_category(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    cat = await _deactivate_category(session, user_id=current_user.id, category_id=category_id)
+    try:
+        cat = await _deactivate_category(session, user_id=current_user.id, category_id=category_id)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
     return cat

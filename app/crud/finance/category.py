@@ -7,6 +7,9 @@ from app.models.finance.category import Category
 from app.models.finance.transaction import Transaction
 from app.schemas.finance.category import CategoryCreate, CategoryUpdate
 
+# System categories used by transfers (should not be deactivated/deleted/merged)
+SYSTEM_CATEGORIES = {("Transfer In", "INCOME"), ("Transfer Out", "EXPENSE")}
+
 
 async def create_category(session: AsyncSession, *, user_id: int, data: CategoryCreate) -> Category:
     cat = Category(user_id=user_id, name=data.name, type=data.type)
@@ -26,6 +29,8 @@ async def delete_category(session: AsyncSession, *, user_id: int, category_id: i
     cat = res.scalars().first()
     if not cat:
         return False
+    if (cat.name, cat.type) in SYSTEM_CATEGORIES:
+        raise ValueError("cannot delete system category used by transfers")
     used = await session.execute(select(Transaction.id).where(Transaction.category_id == category_id).limit(1))
     if used.first():
         raise ValueError("category in use")
@@ -38,6 +43,8 @@ async def deactivate_category(session: AsyncSession, *, user_id: int, category_i
     cat = await get_category(session, user_id=user_id, category_id=category_id)
     if not cat:
         return None
+    if (cat.name, cat.type) in SYSTEM_CATEGORIES:
+        raise ValueError("cannot deactivate system category used by transfers")
     cat.active = False
     session.add(cat)
     await session.commit()
@@ -53,6 +60,8 @@ async def merge_categories(session: AsyncSession, *, user_id: int, src_category_
     src = await get_category(session, user_id=user_id, category_id=src_category_id)
     if not src or not dst:
         raise ValueError("category not found")
+    if (src.name, src.type) in SYSTEM_CATEGORIES or (dst.name, dst.type) in SYSTEM_CATEGORIES:
+        raise ValueError("cannot merge system category used by transfers")
     res = await session.execute(select(Transaction).where(Transaction.user_id == user_id, Transaction.category_id == src_category_id))
     txs = res.scalars().all()
     count = 0
