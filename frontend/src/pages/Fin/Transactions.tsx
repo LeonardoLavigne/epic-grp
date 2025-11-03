@@ -157,14 +157,16 @@ export default function Transactions() {
                   <td>{tx.amount}</td>
                   <td className="whitespace-nowrap">{tx.occurred_at}</td>
                   <td>
-                    <button
-                      className="btn btn-ghost"
-                      onClick={() => { if (!tx.from_transfer) voidMut.mutate(tx.id) }}
-                      disabled={voidMut.isPending || tx.from_transfer}
-                      title={tx.from_transfer ? 'Transação de transferência: gerencie pelo menu de transferências' : 'Anular transação'}
-                    >
-                      Void
-                    </button>
+                    {!tx.from_transfer && (
+                      <button
+                        className="btn btn-ghost"
+                        onClick={() => voidMut.mutate(tx.id)}
+                        disabled={voidMut.isPending}
+                        title="Anular transação"
+                      >
+                        Void
+                      </button>
+                    )}
                     {tx.from_transfer && tx.transfer_id && (
                       <button
                         className="btn btn-ghost ml-2"
