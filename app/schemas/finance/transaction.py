@@ -13,9 +13,12 @@ class TransactionBase(BaseModel):
     occurred_at: dt.datetime
     description: str | None = Field(default=None, max_length=1000)
 
-    # Nota: a validação de casas decimais por moeda depende da currency da conta
-    # e é feita na camada de CRUD (create/update) onde a account é conhecida.
-    # Aqui mantemos apenas validações genéricas (ex.: > 0 via Field).
+    @field_validator("amount")
+    @classmethod
+    def _validate_amount(cls, v: Decimal) -> Decimal:
+        # Validação conservadora no schema: EUR por padrão (2 casas)
+        # A camada de CRUD revalida com a currency real da conta.
+        return validate_amount_for_currency(v, "EUR")
 
     @field_validator("occurred_at")
     @classmethod
@@ -35,7 +38,12 @@ class TransactionUpdate(BaseModel):
     occurred_at: dt.datetime | None = None
     description: str | None = Field(default=None, max_length=1000)
 
-    # Ver comentário acima: validação por moeda ocorre no CRUD; aqui pass-through.
+    @field_validator("amount")
+    @classmethod
+    def _validate_amount(cls, v: Decimal | None) -> Decimal | None:
+        if v is None:
+            return None
+        return validate_amount_for_currency(v, "EUR")
 
     @field_validator("occurred_at")
     @classmethod
