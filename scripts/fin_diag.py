@@ -19,6 +19,7 @@ from app.models.finance.account import Account
 from app.models.finance.category import Category
 from app.models.finance.transaction import Transaction
 from app.models.finance.transfer import Transfer
+from dotenv import load_dotenv
 
 
 def parse_args():
@@ -26,19 +27,24 @@ def parse_args():
     p.add_argument("--year", type=int, default=None, help="Ano (UTC)")
     p.add_argument("--month", type=int, default=None, help="Mês (1-12, UTC)")
     p.add_argument("--user", type=int, default=None, help="ID do usuário para filtrar (opcional)")
+    p.add_argument("--env-file", type=str, default=str(ROOT / ".env"), help="Caminho do arquivo .env (default: ./\.env)")
     return p.parse_args()
 
 
 async def main():
     args = parse_args()
+    # Load .env first
+    load_dotenv(args.env_file)
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
         print("DATABASE_URL não definido no ambiente.")
         return
 
     # Suporta URLs sync convertendo para async quando necessário
-    if db_url.startswith("postgresql+") and "+asyncpg" not in db_url:
-        db_url = db_url.replace("postgresql+", "postgresql+asyncpg+")
+    if db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
 
     engine = create_async_engine(db_url, future=True)
     async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
