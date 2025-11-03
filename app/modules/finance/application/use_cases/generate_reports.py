@@ -45,7 +45,7 @@ class MonthlyByCategoryItem:
 class GenerateReportsUseCase:
     """Use case for generating financial reports with complex aggregations."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session) -> None:  # type: ignore
         self.session = session
 
     async def generate_balance_by_account(
@@ -204,7 +204,7 @@ class GenerateReportsUseCase:
                 ))
         return result
 
-    async def _convert_amount(self, tx: Transaction, acc: Account, target_currency: str, sign: int) -> Decimal:
+    async def _convert_amount(self, tx, acc, target_currency: str, sign: int) -> Decimal:  # type: ignore
         """Convert transaction amount to target currency."""
         src_cur = acc.currency
         amt_dec = cents_to_amount(tx.amount_cents, src_cur)

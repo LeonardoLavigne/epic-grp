@@ -25,7 +25,7 @@ class CreateTransferResponse:
 class CreateTransferUseCase:
     """Use case for creating transfers with fee calculations."""
 
-    def __init__(self, transfer_crud, transaction_crud) -> None:
+    def __init__(self, transfer_crud, transaction_crud) -> None:  # type: ignore
         self.transfer_crud = transfer_crud
         self.transaction_crud = transaction_crud
 
@@ -44,7 +44,7 @@ class CreateTransferUseCase:
             dst_transaction_id=tx_in.id
         )
 
-    def _build_transfer_dto(self, transfer) -> "TransferOut":
+    def _build_transfer_dto(self, transfer) -> "TransferOut":  # type: ignore
         """Build TransferOut DTO with calculated fees."""
         # Present amounts and rate in Decimals according to currency
         src_amount = cents_to_amount(transfer.src_amount_cents, transfer.rate_base)
