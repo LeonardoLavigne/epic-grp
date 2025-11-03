@@ -69,6 +69,7 @@ def _present_tx(tx: Transaction, currency: str) -> TransactionOut:
         amount=amount,
         occurred_at=occ,
         description=tx.description,
+        from_transfer=bool(tx.transfer_id),
     )
 
 
