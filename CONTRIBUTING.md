@@ -28,9 +28,40 @@ Regras:
 - Título do PR pode começar pelo ticket quando houver: `WEB-004: Balance by account UI`.
 - Pode fechar issue pelo corpo do PR/commit (`Closes #130`).
 
+## Mensagens de commit (Conventional Commits)
+
+Formato básico: `type(scope)!: assunto`
+
+- `type`: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `revert`
+- `scope` (opcional): área afetada, ex.: `frontend`, `backend`, `auth`, `fin`, `ci`
+- `!` (opcional): indica breaking change
+- `assunto`: frase curta no imperativo, sem ponto final
+
+Boas práticas:
+- Assunto ideal até 50 caracteres; quebre o corpo em linhas de ~72 colunas.
+- Corpo (opcional): explique o “por quê”/contexto e impactos.
+- Rodapé (opcional): `Closes #123`, `Refs #123`, `BREAKING CHANGE: descrição`, `Co-authored-by: Nome <email>`
+
+Exemplos:
+- `feat/frontend: relatórios de saldo por conta (WEB-004)`
+- `fix/backend: occurred_at timezone-aware em transfers (FIN-010)`
+- `chore/ci: expor X-Request-ID no CORS (#127)`
+- `docs/readme: adiciona badge de CI`
+- `refactor/auth: simplifica middleware de JWT`
+- `perf/fin: otimiza consulta de relatórios`
+- `test/fin: cobre casos de transfers voided`
+
+Breaking change (duas formas válidas):
+```
+feat(api)!: renomeia user_id para owner_id
+
+Atualiza schema e migrações.
+
+BREAKING CHANGE: endpoints passam a exigir owner_id
+```
+
 ## Filosofias adotadas
 
 - TDD, DRY, KISS e YAGNI: PRs pequenos, objetivos e com testes.
 - Gestão de segredos: `.env` não versionado; não inclua credenciais em commits/PRs.
 - Empacotamento: use `uv` (pip é proibido neste projeto).
-
