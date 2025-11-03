@@ -8,6 +8,8 @@ import Accounts from '../pages/Fin/Accounts'
 import Categories from '../pages/Fin/Categories'
 import Transactions from '../pages/Fin/Transactions'
 import Transfers from '../pages/Fin/Transfers'
+import BalanceByAccount from '../pages/Fin/Reports/BalanceByAccount'
+import MonthlyByCategory from '../pages/Fin/Reports/MonthlyByCategory'
 import { RequireAuth } from '../shared/auth/RequireAuth'
 
 export const router = createBrowserRouter([
@@ -25,6 +27,8 @@ export const router = createBrowserRouter([
           { path: 'fin/categories', element: <Categories /> },
           { path: 'fin/transactions', element: <Transactions /> },
           { path: 'fin/transfers', element: <Transfers /> },
+          { path: 'fin/reports/balance-by-account', element: <BalanceByAccount /> },
+          { path: 'fin/reports/monthly-by-category', element: <MonthlyByCategory /> },
         ],
       },
     ],
