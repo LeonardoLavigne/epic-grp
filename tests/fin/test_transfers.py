@@ -114,6 +114,8 @@ def test_transfer_with_dst_amount(client, app):
     # flagged as originating from transfer
     assert src_tx[0]["from_transfer"] is True
     assert dst_tx[0]["from_transfer"] is True
+    assert src_tx[0].get("transfer_id") is not None
+    assert dst_tx[0].get("transfer_id") is not None
 
 
 def test_transfer_with_fx_rate(client, app):
