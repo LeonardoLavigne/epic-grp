@@ -4,6 +4,7 @@ import { useAuth } from '../shared/auth/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../shared/ui/Button'
 import { ReadyIndicator } from '../shared/ui/ReadyIndicator'
+import { RequestID } from '../shared/ui/RequestID'
 
 export const AppLayout: React.FC = () => {
   const { isAuthenticated, logout } = useAuth()
@@ -30,6 +31,7 @@ export const AppLayout: React.FC = () => {
           </nav>
           <div className="ml-auto flex items-center gap-4">
             <ReadyIndicator />
+            <RequestID />
             {!isAuthenticated && <Link to="/auth/login" className="btn btn-ghost">Login</Link>}
             {!isAuthenticated && <Link to="/auth/register" className="btn btn-primary">Register</Link>}
             {isAuthenticated && <Button onClick={onLogout} variant="ghost">Logout</Button>}
