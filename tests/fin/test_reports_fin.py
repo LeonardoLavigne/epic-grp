@@ -128,3 +128,54 @@ def test_reports_balance_and_monthly_by_category(client, app):
     assert d[("Salary", "INCOME")] == "150.00"
     assert d[("Food", "EXPENSE")] == "-20.00"
 
+
+def test_reports_exclude_voided_and_include_transfers(client, app):
+    # act as user 1
+    async def _get_user1():
+        return User(id=1, email="rep1@example.com", hashed_password="x")
+    app.dependency_overrides[get_current_user] = _get_user1
+
+    # Separate accounts for this test
+    eur = client.post("/fin/accounts", json={"name": "EUR_ACC", "currency": "EUR"}).json()["id"]
+    brl = client.post("/fin/accounts", json={"name": "BRL_ACC", "currency": "BRL"}).json()["id"]
+
+    # Create transfer 1 EUR -> 5 BRL in current month
+    now = dt.datetime.now(dt.timezone.utc)
+    when = now.replace(microsecond=0).isoformat()
+    tr = client.post("/fin/transfers", json={
+        "src_account_id": eur,
+        "dst_account_id": brl,
+        "src_amount": "1.00",
+        "fx_rate": "5.00",
+        "occurred_at": when,
+    })
+    assert tr.status_code == 201
+
+    # Balance by account should reflect -1.00 EUR and +5.00 BRL
+    rb = client.get(f"/fin/reports/balance-by-account?year={now.year}&month={now.month}")
+    assert rb.status_code == 200
+    rows = rb.json()
+    by_id = { r["account_id"]: r for r in rows }
+    assert by_id[eur]["balance"] == "-1.00"
+    assert by_id[brl]["balance"] == "5.00"
+
+    # Create an INCOME 900.00 in EUR, then void it; balance should revert
+    r_cat = client.post("/fin/categories", json={"name": "INCX", "type": "INCOME"})
+    assert r_cat.status_code == 201
+    cat_id = r_cat.json()["id"]
+    tx = client.post("/fin/transactions", json={
+        "account_id": eur,
+        "category_id": cat_id,
+        "amount": "900.00",
+        "occurred_at": when,
+    }).json()
+    rb2 = client.get(f"/fin/reports/balance-by-account?year={now.year}&month={now.month}")
+    assert rb2.status_code == 200
+    rows2 = rb2.json(); by_id2 = { r["account_id"]: r for r in rows2 }
+    assert by_id2[eur]["balance"] == "899.00"
+
+    # Void and ensure balance returns to -1.00
+    client.post(f"/fin/transactions/{tx['id']}/void")
+    rb3 = client.get(f"/fin/reports/balance-by-account?year={now.year}&month={now.month}")
+    rows3 = rb3.json(); by_id3 = { r["account_id"]: r for r in rows3 }
+    assert by_id3[eur]["balance"] == "-1.00"

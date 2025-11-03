@@ -540,12 +540,13 @@ async def balance_by_account(
     # Initialize map
     totals: dict[int, int] = {a.id: 0 for a in acc_rows}
 
-    # Fetch transactions with categories
+    # Fetch transactions with categories (exclude voided)
     tx_rows = (await session.execute(
         select(Transaction, Category, Account)
         .join(Account, Transaction.account_id == Account.id)
         .join(Category, Transaction.category_id == Category.id, isouter=True)
         .where(Transaction.user_id == current_user.id)
+        .where(Transaction.voided.is_(False))
     )).all()
 
     for tx, cat, acc in tx_rows:
@@ -588,6 +589,7 @@ async def monthly_by_category(
         .join(Account, Transaction.account_id == Account.id)
         .join(Category, Transaction.category_id == Category.id, isouter=True)
         .where(Transaction.user_id == current_user.id)
+        .where(Transaction.voided.is_(False))
     )).all()
 
     # Aggregate in Python for the given year/month
