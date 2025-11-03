@@ -8,7 +8,12 @@ from sqlalchemy.engine import make_url
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from app.api.routes.auth import router as auth_router
-from app.api.routes.finance import router as fin_router
+from app.api.routes.finance.accounts import router as accounts_router
+from app.api.routes.finance.categories import router as categories_router
+from app.api.routes.finance.transactions import router as transactions_router
+from app.api.routes.finance.transfers import router as transfers_router
+from app.api.routes.finance.reports import router as reports_router
+from app.api.routes.finance.fx_rates import router as fx_rates_router
 from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.user import UserOut
@@ -76,7 +81,12 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth_router)
-    app.include_router(fin_router)
+    app.include_router(accounts_router, prefix="/fin", tags=["finances"])
+    app.include_router(categories_router, prefix="/fin", tags=["finances"])
+    app.include_router(transactions_router, prefix="/fin", tags=["finances"])
+    app.include_router(transfers_router, prefix="/fin", tags=["finances"])
+    app.include_router(reports_router, prefix="/fin", tags=["finances"])
+    app.include_router(fx_rates_router, prefix="/fin", tags=["finances"])
 
     @app.get("/me", response_model=UserOut)
     async def me(current_user: User = Depends(get_current_user)) -> UserOut:
