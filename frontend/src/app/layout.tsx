@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../shared/ui/Button'
 import { ReadyIndicator } from '../shared/ui/ReadyIndicator'
 import { RequestID } from '../shared/ui/RequestID'
+import { Toaster } from '../shared/ui/Toaster'
 
 export const AppLayout: React.FC = () => {
   const { isAuthenticated, logout } = useAuth()
@@ -42,5 +43,14 @@ export const AppLayout: React.FC = () => {
         <Outlet />
       </main>
     </div>
+  )
+}
+
+export default function AppShell() {
+  return (
+    <>
+      <Toaster />
+      <AppLayout />
+    </>
   )
 }

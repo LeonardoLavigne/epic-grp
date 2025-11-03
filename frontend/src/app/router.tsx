@@ -1,6 +1,6 @@
 import React from 'react'
 import { createBrowserRouter } from 'react-router-dom'
-import { AppLayout } from './layout'
+import AppShell, { AppLayout } from './layout'
 import Home from '../pages/Home'
 import Login from '../pages/Auth/Login'
 import Register from '../pages/Auth/Register'
@@ -15,7 +15,7 @@ import { RequireAuth } from '../shared/auth/RequireAuth'
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <AppLayout />,
+    element: <AppShell />,
     children: [
       { index: true, element: <Home /> },
       { path: 'auth/login', element: <Login /> },
