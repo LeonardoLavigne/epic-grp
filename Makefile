@@ -24,7 +24,7 @@ install:
 	uv sync --all-extras
 
 run:
-	uv run uvicorn app.main:app --reload
+	uv run uvicorn app.main:app --reload --port 10000
 
 test:
 	uv run pytest -q
@@ -39,5 +39,4 @@ downgrade:
 	uv run alembic downgrade -1
 
 ready:
-	@echo "GET http://localhost:8000/ready" && curl -sS http://localhost:8000/ready | jq . || true
-
+	@echo "GET http://localhost:10000/ready" && curl -sS http://localhost:10000/ready | jq . || true
