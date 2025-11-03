@@ -5,7 +5,22 @@ import { MoneyInput } from '../../shared/ui/MoneyInput'
 import { DateTimeISO } from '../../shared/ui/DateTimeISO'
 
 interface Account { id: number; name: string; currency: string }
-interface TransferOut { id: number; src_account_id: number; dst_account_id: number; src_amount: string; dst_amount: string; rate_value: string; rate_base: string; rate_quote: string; occurred_at: string }
+interface TransferOut {
+  id: number
+  src_account_id: number
+  dst_account_id: number
+  src_amount: string
+  dst_amount: string
+  rate_value: string
+  rate_base: string
+  rate_quote: string
+  occurred_at: string
+  fx_rate_2dp?: string
+  vet_2dp?: string
+  ref_rate_2dp?: string
+  fees_per_unit_2dp?: string
+  fees_pct?: string
+}
 
 export default function Transfers() {
   const accountsQ = useQuery({ queryKey: ['accounts', {}], queryFn: async () => (await api.get('/fin/accounts')).data as Account[] })
@@ -14,7 +29,8 @@ export default function Transfers() {
   const [dstAccount, setDstAccount] = useState<number | ''>('')
   const [srcAmount, setSrcAmount] = useState('0.00')
   const [dstAmount, setDstAmount] = useState('')
-  const [fxRate, setFxRate] = useState('')
+  // VET (2 casas) mapeia para fx_rate no backend
+  const [vet, setVet] = useState('')
   const [when, setWhen] = useState<string>(() => new Date().toISOString())
   const [status, setStatus] = useState<string | null>(null)
 
@@ -27,7 +43,7 @@ export default function Transfers() {
         occurred_at: when,
       }
       if (dstAmount) payload.dst_amount = dstAmount
-      if (fxRate) payload.fx_rate = fxRate
+      if (vet) payload.fx_rate = vet
       return (await api.post('/fin/transfers', payload)).data as { transfer: TransferOut }
     },
     onSuccess: (res) => setStatus(`Transfer #${res.transfer.id} criada`),
@@ -50,6 +66,15 @@ export default function Transfers() {
 
   const accounts = accountsQ.data || []
   const canCreate = srcAccount && dstAccount && srcAmount
+  // auto-cálculo: quando usuario preencher VET e srcAmount, sugerir dstAmount; se limpar VET, não forçar
+  React.useEffect(() => {
+    const s = Number(srcAmount || '0')
+    const v = Number(vet || '0')
+    if (s > 0 && v > 0) {
+      const vdst = (s * v).toFixed(2)
+      setDstAmount(vdst)
+    }
+  }, [srcAmount, vet])
 
   return (
     <div className="grid gap-4">
@@ -74,8 +99,8 @@ export default function Transfers() {
               <MoneyInput value={dstAmount} onChange={setDstAmount} className="w-36" />
             </div>
             <div>
-              <label className="label">FX rate (opcional)</label>
-              <MoneyInput value={fxRate} onChange={setFxRate} className="w-32" />
+              <label className="label">VET (2 casas, opcional)</label>
+              <MoneyInput value={vet} onChange={setVet} className="w-32" />
             </div>
             <div>
               <label className="label">Quando</label>
@@ -100,7 +125,16 @@ export default function Transfers() {
               <div><b>ID:</b> {fetched.id}</div>
               <div><b>Contas:</b> {fetched.src_account_id} → {fetched.dst_account_id}</div>
               <div><b>Valores:</b> {fetched.src_amount} → {fetched.dst_amount}</div>
-              <div><b>FX:</b> {fetched.rate_value} ({fetched.rate_base}/{fetched.rate_quote})</div>
+              <div><b>FX:</b> {fetched.fx_rate_2dp ?? fetched.rate_value} ({fetched.rate_base}/{fetched.rate_quote})</div>
+              {typeof fetched.vet_2dp !== 'undefined' && (
+                <div><b>VET:</b> {fetched.vet_2dp}</div>
+              )}
+              {typeof fetched.ref_rate_2dp !== 'undefined' && (
+                <div><b>Ref:</b> {fetched.ref_rate_2dp}</div>
+              )}
+              {typeof fetched.fees_per_unit_2dp !== 'undefined' && (
+                <div><b>Taxas implícitas:</b> {fetched.fees_per_unit_2dp}{fetched.fees_pct ? ` (${fetched.fees_pct}%)` : ''}</div>
+              )}
               <div><b>Quando:</b> {fetched.occurred_at}</div>
             </div>
           )}
