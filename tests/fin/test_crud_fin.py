@@ -9,9 +9,13 @@ from sqlalchemy import delete
 
 from app.models.base import Base
 from app.models.user import User
-from app.crud.finance.account import create_account, list_accounts
-from app.crud.finance.category import create_category
-from app.crud.finance.transaction import (
+from app.models.finance.transfer import Transfer
+from app.models.finance.transaction import Transaction
+from app.models.finance.account import Account
+from app.models.finance.category import Category
+from app.modules.finance.infrastructure.persistence.account import create_account, list_accounts
+from app.modules.finance.infrastructure.persistence.category import create_category
+from app.modules.finance.infrastructure.persistence.transaction import (
     create_transaction,
     list_transactions,
     update_transaction_amount,

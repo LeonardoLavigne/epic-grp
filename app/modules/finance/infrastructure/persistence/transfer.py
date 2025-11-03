@@ -17,6 +17,19 @@ TRANSFER_IN_NAME = "Transfer In"
 TRANSFER_OUT_NAME = "Transfer Out"
 
 
+class TransferCRUD:
+    """CRUD operations for transfers using hexagonal architecture."""
+
+    def __init__(self, session: AsyncSession | None = None):
+        self.session = session
+
+    async def create_transfer(self, session: AsyncSession, *, user_id: int, data: TransferCreate) -> tuple[Transfer, Transaction, Transaction]:
+        return await create_transfer(session, user_id=user_id, data=data)
+
+    async def void_transfer(self, session: AsyncSession, *, user_id: int, transfer_id: int) -> Transfer | None:
+        return await void_transfer(session, user_id=user_id, transfer_id=transfer_id)
+
+
 async def _get_account(session: AsyncSession, user_id: int, account_id: int) -> Account | None:
     res = await session.execute(select(Account).where(Account.id == account_id, Account.user_id == user_id))
     return res.scalars().first()

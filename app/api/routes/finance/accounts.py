@@ -5,7 +5,7 @@ from app.core.security import get_current_user
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.finance.account import AccountCreate, AccountOut, AccountUpdate
-from app.crud.finance.account import (
+from app.modules.finance.infrastructure.persistence.account import (
     create_account as _create_account,
     list_accounts as _list_accounts,
     update_account as _update_account,

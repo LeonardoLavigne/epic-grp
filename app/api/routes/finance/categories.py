@@ -5,7 +5,7 @@ from app.core.security import get_current_user
 from app.db.session import get_session
 from app.models.user import User
 from app.schemas.finance.category import CategoryCreate, CategoryOut, CategoryUpdate
-from app.crud.finance.category import (
+from app.modules.finance.infrastructure.persistence.category import (
     create_category as _create_category,
     list_categories as _list_categories,
     update_category as _update_category,

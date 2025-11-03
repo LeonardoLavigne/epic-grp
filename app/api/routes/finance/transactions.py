@@ -18,14 +18,14 @@ from app.schemas.finance.transaction import (
     TransactionUpdate,
 )
 from app.core.money import currency_exponent
-from app.crud.finance.transaction import (
+from app.modules.finance.infrastructure.persistence.transaction import (
     create_transaction as _create_transaction,
     update_transaction_amount as _update_transaction_amount,
     get_transaction as _get_transaction,
     update_transaction as _update_transaction,
     delete_transaction as _delete_transaction,
 )
-from app.crud.finance.transaction import void_transaction as _void_transaction
+from app.modules.finance.infrastructure.persistence.transaction import void_transaction as _void_transaction
 from app.crud.errors import DomainConflict
 
 router = APIRouter(prefix="/transactions")
