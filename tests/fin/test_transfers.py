@@ -111,6 +111,9 @@ def test_transfer_with_dst_amount(client, app):
     src_tx = client.get("/fin/transactions", params={"account_id": eur}).json()
     dst_tx = client.get("/fin/transactions", params={"account_id": brl}).json()
     assert len(src_tx) == 1 and len(dst_tx) == 1
+    # flagged as originating from transfer
+    assert src_tx[0]["from_transfer"] is True
+    assert dst_tx[0]["from_transfer"] is True
 
 
 def test_transfer_with_fx_rate(client, app):
@@ -154,4 +157,3 @@ def test_transfer_same_account_or_invalid_fx(client, app):
         "fx_rate": "0",
     })
     assert r2.status_code == 422
-

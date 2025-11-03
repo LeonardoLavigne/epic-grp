@@ -56,5 +56,5 @@ class TransactionUpdate(BaseModel):
 
 class TransactionOut(TransactionBase):
     id: int
+    from_transfer: bool = False
     model_config = ConfigDict(from_attributes=True)
-

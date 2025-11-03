@@ -155,6 +155,7 @@ make ready            # Consulta /ready (curl)
   - Accounts: não deletar se em uso; use `POST /fin/accounts/{id}/close` (status=CLOSED). Listas ocultam fechadas por padrão.
   - Categories: não deletar se referenciada; use `POST /fin/categories/{id}/deactivate` (active=false) e `POST /fin/categories/merge` (mover transações src→dst). Listas ocultam inativas por padrão.
   - Transactions: prefira `POST /fin/transactions/{id}/void` (voided=true) em vez de deletar. Listas ocultam voided por padrão.
+  - Transactions geradas por Transferências: são somente leitura no contexto de transações (não podem ser editadas/voidadas/deletadas individualmente). Devem ser gerenciadas via endpoints de transferência.
   - Transfers: `POST /fin/transfers/{id}/void` anula o par; as transações ligadas ficam ocultas por padrão.
 
 - Endpoints de ciclo de vida:
@@ -191,6 +192,11 @@ curl -sS -X POST http://localhost:8000/fin/transactions \
   -H 'Content-Type: application/json' \
   -d '{"account_id":1,"category_id":1,"amount":"10.50","occurred_at":"'$NOW'"}'
 ```
+
+### DTO – Flags úteis
+
+- `TransactionOut.from_transfer: bool` — indica se a transação foi criada a partir de uma transferência. Permite ao frontend desabilitar ações (editar/void/delete) diretamente em transações oriundas de transferências.
+
 
 Listar transações com filtros de data e tipo:
 
