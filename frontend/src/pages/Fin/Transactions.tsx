@@ -12,10 +12,12 @@ interface Transaction {
   occurred_at: string
   description?: string
   from_transfer: boolean
+  transfer_id?: number | null
 }
 
 export default function Transactions() {
   const qc = useQueryClient()
+  const [transferView, setTransferView] = useState<any | null>(null)
   // Filters
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
@@ -65,6 +67,17 @@ export default function Transactions() {
     mutationFn: async (id: number) => (await api.post(`/fin/transactions/${id}/void`)).data as Transaction,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['transactions'] }),
   })
+
+  const [loadingTransferId, setLoadingTransferId] = useState<number | null>(null)
+  const showTransfer = async (id: number) => {
+    try {
+      setLoadingTransferId(id)
+      const data = (await api.get(`/fin/transfers/${id}`)).data
+      setTransferView(data)
+    } finally {
+      setLoadingTransferId(null)
+    }
+  }
 
   if (listQ.isLoading || accountsQ.isLoading || categoriesQ.isLoading) return <p>Carregando…</p>
   if (listQ.error) return <p>Erro ao carregar transações</p>
@@ -152,11 +165,35 @@ export default function Transactions() {
                     >
                       Void
                     </button>
+                    {tx.from_transfer && tx.transfer_id && (
+                      <button
+                        className="btn btn-ghost ml-2"
+                        onClick={() => showTransfer(tx.transfer_id!)}
+                        disabled={loadingTransferId === tx.transfer_id}
+                        title="Ver transferência"
+                      >
+                        {loadingTransferId === tx.transfer_id ? 'Carregando…' : 'Ver transferência'}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {transferView && (
+            <div className="mt-4 p-4 border rounded bg-slate-50">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold">Transferência #{transferView.id}</h4>
+                <button className="btn btn-ghost" onClick={() => setTransferView(null)}>Fechar</button>
+              </div>
+              <div className="grid gap-1 text-sm text-slate-700">
+                <div><span className="text-slate-500">Src:</span> {transferView.src_account_id} — {transferView.src_amount} {transferView.rate_base}</div>
+                <div><span className="text-slate-500">Dst:</span> {transferView.dst_account_id} — {transferView.dst_amount} {transferView.rate_quote}</div>
+                <div><span className="text-slate-500">FX:</span> 1 {transferView.rate_base} = {transferView.rate_value} {transferView.rate_quote}</div>
+                <div><span className="text-slate-500">Quando:</span> {transferView.occurred_at}</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
