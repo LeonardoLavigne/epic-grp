@@ -9,6 +9,8 @@ from app.models.finance.transaction import Transaction
 from app.models.finance.transfer import Transfer
 from app.core.money import currency_exponent, amount_to_cents, validate_amount_for_currency
 from app.schemas.finance.transfer import TransferCreate
+from app.services.fx import get_rate, RateNotFound
+from decimal import Decimal
 
 
 TRANSFER_IN_NAME = "Transfer In"
@@ -49,19 +51,52 @@ async def create_transfer(session: AsyncSession, *, user_id: int, data: Transfer
     # Validate amounts by currency
     validate_amount_for_currency(data.src_amount, src.currency)
 
-    # Determine dst_amount and rate
+    # Determine dst_amount and rate + VET logic
+    vet_value: Decimal | None = None
+    ref_rate_value: Decimal | None = None
+    ref_rate_date: dt.date | None = None
+    ref_rate_source: str | None = None
+
     if data.dst_amount is not None:
         validate_amount_for_currency(data.dst_amount, dst.currency)
         rate_value = (data.dst_amount / data.src_amount)
         dst_amount = data.dst_amount
-    else:
-        if data.fx_rate is None:
-            raise ValueError("dst_amount or fx_rate required")
+        # VET = effective rate
+        vet_value = rate_value
+        # Try reference snapshot (non-blocking)
+        try:
+            ref_rate_value = await get_rate(session, date=data.occurred_at.date(), base=src.currency, quote=dst.currency)
+            ref_rate_date = data.occurred_at.date()
+            ref_rate_source = "exr-v6/latest"
+        except RateNotFound:
+            pass
+    elif data.fx_rate is not None:
         rate_value = data.fx_rate
         exp = currency_exponent(dst.currency)
         quant = Decimal(1).scaleb(-exp)
         dst_amount = (data.src_amount * rate_value).quantize(quant, rounding=ROUND_HALF_UP)
         validate_amount_for_currency(dst_amount, dst.currency)
+        vet_value = rate_value
+        try:
+            ref_rate_value = await get_rate(session, date=data.occurred_at.date(), base=src.currency, quote=dst.currency)
+            ref_rate_date = data.occurred_at.date()
+            ref_rate_source = "exr-v6/latest"
+        except RateNotFound:
+            pass
+    else:
+        # Neither dst_amount nor fx_rate provided -> use reference rate of the day (blocking)
+        try:
+            rate_value = await get_rate(session, date=data.occurred_at.date(), base=src.currency, quote=dst.currency)
+        except RateNotFound:
+            raise ValueError("rate missing for date/base/quote; provide dst_amount or fx_rate")
+        exp = currency_exponent(dst.currency)
+        quant = Decimal(1).scaleb(-exp)
+        dst_amount = (data.src_amount * rate_value).quantize(quant, rounding=ROUND_HALF_UP)
+        validate_amount_for_currency(dst_amount, dst.currency)
+        vet_value = rate_value
+        ref_rate_value = rate_value
+        ref_rate_date = data.occurred_at.date()
+        ref_rate_source = "exr-v6/latest"
 
     # Convert to cents
     src_cents = amount_to_cents(data.src_amount, src.currency)
@@ -78,6 +113,10 @@ async def create_transfer(session: AsyncSession, *, user_id: int, data: Transfer
         rate_quote=dst.currency,
         rate_value=rate_value,
         occurred_at=data.occurred_at,
+        vet_value=vet_value,
+        ref_rate_value=ref_rate_value,
+        ref_rate_date=ref_rate_date,
+        ref_rate_source=ref_rate_source,
     )
     session.add(tr)
     await session.flush()

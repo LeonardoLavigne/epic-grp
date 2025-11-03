@@ -1,4 +1,4 @@
-from sqlalchemy import String, ForeignKey, BigInteger, Numeric, Boolean, DateTime
+from sqlalchemy import String, ForeignKey, BigInteger, Numeric, Boolean, DateTime, Date
 from sqlalchemy.orm import Mapped, mapped_column
 import datetime as dt
 
@@ -23,3 +23,9 @@ class Transfer(TimestampMixin, Base):
 
     occurred_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
     voided: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Optional financial reference/snapshot fields (FIN-009/10)
+    vet_value: Mapped[float | None] = mapped_column(Numeric(18, 10), nullable=True)
+    ref_rate_value: Mapped[float | None] = mapped_column(Numeric(18, 10), nullable=True)
+    ref_rate_date: Mapped[dt.date | None] = mapped_column(Date, nullable=True)
+    ref_rate_source: Mapped[str | None] = mapped_column(String(32), nullable=True)
