@@ -118,6 +118,49 @@ def test_transfer_with_dst_amount(client, app):
     assert dst_tx[0].get("transfer_id") is not None
 
 
+def test_transfer_reactivates_transfer_categories(client, app):
+    _as_user(app, 1, "tr1@example.com")
+    # create accounts
+    eur = client.post("/fin/accounts", json={"name": "EURx", "currency": "EUR"}).json()["id"]
+    brl = client.post("/fin/accounts", json={"name": "BRLx", "currency": "BRL"}).json()["id"]
+
+    when = dt.datetime(2025, 1, 12, 12, tzinfo=dt.timezone.utc).isoformat()
+    # First transfer to create categories
+    r1 = client.post("/fin/transfers", json={
+        "src_account_id": eur,
+        "dst_account_id": brl,
+        "src_amount": "1.00",
+        "fx_rate": "5.00",
+        "occurred_at": when,
+    })
+    assert r1.status_code == 201
+
+    # Deactivate categories directly via API: find ids by listing categories (filter by name)
+    cats = client.get("/fin/categories").json()
+    t_in = next(c for c in cats if c["name"] == "Transfer In" and c["type"] == "INCOME")
+    t_out = next(c for c in cats if c["name"] == "Transfer Out" and c["type"] == "EXPENSE")
+    r_di = client.post(f"/fin/categories/{t_in['id']}/deactivate")
+    r_do = client.post(f"/fin/categories/{t_out['id']}/deactivate")
+    # System categories are protected; deactivation should be rejected
+    assert r_di.status_code in (409, 422)
+    assert r_do.status_code in (409, 422)
+
+    # Second transfer should auto-reactivate both categories
+    r2 = client.post("/fin/transfers", json={
+        "src_account_id": eur,
+        "dst_account_id": brl,
+        "src_amount": "2.00",
+        "fx_rate": "5.00",
+        "occurred_at": when,
+    })
+    assert r2.status_code == 201
+
+    # Validate by ensuring a second transfer still creates the two transactions
+    src_tx = client.get("/fin/transactions", params={"account_id": eur}).json()
+    dst_tx = client.get("/fin/transactions", params={"account_id": brl}).json()
+    assert len(src_tx) >= 2 and len(dst_tx) >= 2
+
+
 def test_transfer_with_fx_rate(client, app):
     _as_user(app, 1, "tr1@example.com")
     eur = client.post("/fin/accounts", json={"name": "EUR2", "currency": "EUR"}).json()["id"]

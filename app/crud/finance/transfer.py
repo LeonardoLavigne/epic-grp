@@ -26,6 +26,11 @@ async def _get_or_create_transfer_category(session: AsyncSession, user_id: int, 
     res = await session.execute(select(Category).where(Category.user_id == user_id, Category.name == name, Category.type == typ))
     cat = res.scalars().first()
     if cat:
+        # Auto-heal: se estiver inativa, reativar para evitar inconsistências
+        if getattr(cat, "active", True) is False:
+            cat.active = True
+            session.add(cat)
+            await session.flush()
         return cat
     cat = Category(user_id=user_id, name=name, type=typ)
     session.add(cat)
