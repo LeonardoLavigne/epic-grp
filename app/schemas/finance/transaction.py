@@ -16,7 +16,8 @@ class TransactionBase(BaseModel):
     @field_validator("amount")
     @classmethod
     def _validate_amount(cls, v: Decimal) -> Decimal:
-        # For now, assume EUR; when integrating with Account, pick by account currency
+        # Validação conservadora no schema: EUR por padrão (2 casas)
+        # A camada de CRUD revalida com a currency real da conta.
         return validate_amount_for_currency(v, "EUR")
 
     @field_validator("occurred_at")

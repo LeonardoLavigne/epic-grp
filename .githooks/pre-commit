@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Use a workspace-local uv cache to avoid permission issues on shared HOME caches
+# Ref: uv docs on configuring UV_CACHE_DIR
+# https://github.com/astral-sh/uv/blob/main/docs/guides/integration/github.md
+# https://github.com/astral-sh/uv/blob/main/docs/reference/settings.md
+UV_CACHE_DIR="${UV_CACHE_DIR:-.uv-cache}"
+export UV_CACHE_DIR
+mkdir -p "$UV_CACHE_DIR"
+echo "[pre-commit] UV_CACHE_DIR=$UV_CACHE_DIR"
+
 echo "[pre-commit] Running mypy (type check)..."
 uv run mypy app
 
@@ -8,4 +17,3 @@ echo "[pre-commit] Running tests (pytest)..."
 uv run pytest -q
 
 echo "[pre-commit] OK"
-

@@ -1,4 +1,4 @@
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 
 # Minimal ISO 4217 exponent mapping for common currencies.
 # Extend as needed; defaults to 2 when unknown (KISS/YAGNI).
@@ -41,4 +41,16 @@ def amount_to_cents(amount: Decimal, currency: str) -> int:
 
 def cents_to_amount(cents: int, currency: str) -> Decimal:
     exp = currency_exponent(currency)
-    return (Decimal(cents) / (Decimal(10) ** exp)).quantize(Decimal(1).scaleb(-exp))
+    return (Decimal(cents) / (Decimal(10) ** exp)).quantize(
+        Decimal(1).scaleb(-exp), rounding=ROUND_HALF_UP
+    )
+
+
+def quantize_amount(amount: Decimal, currency: str) -> Decimal:
+    """Quantize a Decimal to the currency exponent using ROUND_HALF_UP.
+
+    Useful when apresentation must enforce the number of decimal places for
+    report_currency regardless of intermediate precision.
+    """
+    exp = currency_exponent(currency)
+    return amount.quantize(Decimal(1).scaleb(-exp), rounding=ROUND_HALF_UP)
