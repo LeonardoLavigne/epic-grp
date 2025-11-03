@@ -9,6 +9,7 @@ from app.models.finance.account import Account
 from app.models.finance.category import Category
 from app.schemas.finance.transaction import TransactionCreate, TransactionUpdate
 from app.core.money import amount_to_cents, validate_amount_for_currency
+from app.crud.errors import DomainConflict
 
 
 async def _get_account_for_user(session: AsyncSession, *, user_id: int, account_id: int) -> Account | None:
@@ -76,6 +77,8 @@ async def update_transaction_amount(
     tx = res.scalars().first()
     if not tx:
         raise ValueError("transaction not found")
+    if tx.transfer_id is not None:
+        raise DomainConflict("transaction is part of a transfer; manage via /fin/transfers")
 
     # Need account to apply currency rules
     acc = await _get_account_for_user(session, user_id=user_id, account_id=tx.account_id)
@@ -101,6 +104,8 @@ async def update_transaction(
     tx = await get_transaction(session, user_id=user_id, transaction_id=transaction_id)
     if not tx:
         return None
+    if tx.transfer_id is not None:
+        raise DomainConflict("transaction is part of a transfer; manage via /fin/transfers")
     # account for currency rules
     acc = await _get_account_for_user(session, user_id=user_id, account_id=tx.account_id)
     if data.amount is not None:
@@ -125,6 +130,8 @@ async def delete_transaction(session: AsyncSession, *, user_id: int, transaction
     tx = await get_transaction(session, user_id=user_id, transaction_id=transaction_id)
     if not tx:
         return False
+    if tx.transfer_id is not None:
+        raise DomainConflict("transaction is part of a transfer; manage via /fin/transfers")
     await session.delete(tx)
     await session.commit()
     return True
@@ -136,6 +143,8 @@ async def void_transaction(session: AsyncSession, *, user_id: int, transaction_i
     tx = res.scalars().first()
     if not tx or tx.user_id != user_id:
         return None
+    if tx.transfer_id is not None:
+        raise DomainConflict("transaction is part of a transfer; manage via /fin/transfers")
     tx.voided = True
     session.add(tx)
     await session.commit()

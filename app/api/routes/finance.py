@@ -48,6 +48,7 @@ from app.crud.finance.transaction import (
 from app.crud.finance.transaction import void_transaction as _void_transaction
 from app.crud.finance.transfer import create_transfer as _create_transfer
 from app.crud.finance.transfer import void_transfer as _void_transfer
+from app.crud.errors import DomainConflict
 
 
 router = APIRouter(prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
@@ -340,6 +341,8 @@ async def patch_transaction(
 ):
     try:
         tx = await _update_transaction(session, user_id=current_user.id, transaction_id=transaction_id, data=data)
+    except DomainConflict as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     if not tx:
@@ -357,7 +360,10 @@ async def delete_transaction(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    ok = await _delete_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
+    try:
+        ok = await _delete_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
+    except DomainConflict as e:
+        raise HTTPException(status_code=409, detail=str(e))
     if not ok:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return None
@@ -376,7 +382,10 @@ async def update_transaction_amount(
         amount = Decimal(str(data["amount"]))
     except Exception:
         raise HTTPException(status_code=422, detail="invalid amount")
-    tx = await _update_transaction_amount(session, user_id=current_user.id, transaction_id=transaction_id, amount=amount)
+    try:
+        tx = await _update_transaction_amount(session, user_id=current_user.id, transaction_id=transaction_id, amount=amount)
+    except DomainConflict as e:
+        raise HTTPException(status_code=409, detail=str(e))
     acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
     currency = acc.currency if acc else "EUR"
     return _present_tx(tx, currency)
@@ -464,7 +473,10 @@ async def void_transaction(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
-    tx = await _void_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
+    try:
+        tx = await _void_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
+    except DomainConflict as e:
+        raise HTTPException(status_code=409, detail=str(e))
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
     acc = (await session.execute(select(Account).where(Account.id == tx.account_id))).scalars().first()
