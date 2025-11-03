@@ -14,6 +14,7 @@ from app.api.routes.finance.transactions import router as transactions_router
 from app.api.routes.finance.transfers import router as transfers_router
 from app.api.routes.finance.reports import router as reports_router
 from app.api.routes.finance.fx_rates import router as fx_rates_router
+from app.core.modules import require_module
 from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.user import UserOut
@@ -81,12 +82,12 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth_router)
-    app.include_router(accounts_router, prefix="/fin", tags=["finances"])
-    app.include_router(categories_router, prefix="/fin", tags=["finances"])
-    app.include_router(transactions_router, prefix="/fin", tags=["finances"])
-    app.include_router(transfers_router, prefix="/fin", tags=["finances"])
-    app.include_router(reports_router, prefix="/fin", tags=["finances"])
-    app.include_router(fx_rates_router, prefix="/fin", tags=["finances"])
+    app.include_router(accounts_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(categories_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(transactions_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(transfers_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(reports_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(fx_rates_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
 
     @app.get("/me", response_model=UserOut)
     async def me(current_user: User = Depends(get_current_user)) -> UserOut:

@@ -15,6 +15,11 @@ from app.models.finance.transaction import Transaction
 from app.schemas.finance.reports import BalanceByAccountItem, MonthlyByCategoryItem
 from app.services.fx import get_rate, RateNotFound
 from app.core.money import cents_to_amount, quantize_amount
+from app.api.routes.finance.application.use_cases.generate_reports import (
+    GenerateReportsUseCase,
+    GenerateBalanceByAccountRequest,
+    GenerateMonthlyByCategoryRequest,
+)
 
 router = APIRouter(prefix="/reports")
 
@@ -108,7 +113,7 @@ async def balance_by_account(
     for a in acc_rows:
         if target and totals_report is not None:
             cur = target
-            bal = totals_report.get(a.id, 0.0)
+            bal = totals_report.get(a.id, Decimal("0"))
             # round to target exponent
             out.append(
                 BalanceByAccountItem(

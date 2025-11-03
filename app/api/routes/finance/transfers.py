@@ -13,6 +13,10 @@ from app.schemas.finance.transfer import TransferCreate, TransferResponse, Trans
 from app.core.money import cents_to_amount
 from app.crud.finance.transfer import create_transfer as _create_transfer
 from app.crud.finance.transfer import void_transfer as _void_transfer
+from app.api.routes.finance.application.use_cases.create_transfer import (
+    CreateTransferUseCase,
+    CreateTransferRequest,
+)
 
 router = APIRouter(prefix="/transfers")
 
