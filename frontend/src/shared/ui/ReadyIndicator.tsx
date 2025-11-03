@@ -5,7 +5,7 @@ import { api } from '../api/client'
 export const ReadyIndicator: React.FC = () => {
   const { data, isError, isLoading } = useQuery({
     queryKey: ['ready'],
-    queryFn: async () => (await api.get('/ready')).data as { status: string },
+    queryFn: async () => (await api.get('/ready', { headers: { 'X-Skip-ReqID-Capture': '1' } })).data as { status: string },
     refetchInterval: 30000,
   })
 
@@ -20,4 +20,3 @@ export const ReadyIndicator: React.FC = () => {
     </div>
   )
 }
-
