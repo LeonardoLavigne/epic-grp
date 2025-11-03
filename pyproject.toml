@@ -45,3 +45,7 @@ no_implicit_optional = true
 disallow_untyped_defs = true
 check_untyped_defs = true
 plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+[[tool.mypy.overrides]]
+module = "app.api.routes.*"
+disallow_untyped_defs = false

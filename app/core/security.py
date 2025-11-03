@@ -10,6 +10,7 @@ from starlette.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings, Settings
+from app.models.user import User
 from app.crud.user import get_user_by_email
 from app.db.session import get_session
 
@@ -41,7 +42,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_http_bearer),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
-):
+) -> User:
     if not credentials or (credentials.scheme or "").lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     token = credentials.credentials

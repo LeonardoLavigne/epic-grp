@@ -138,7 +138,7 @@ async def delete_account(
     account_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> None:
     try:
         ok = await _delete_account(session, user_id=current_user.id, account_id=account_id)
     except ValueError:
@@ -196,10 +196,14 @@ async def merge_categories(
     payload: dict,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> dict:
+    src_val = payload.get("src_category_id")
+    dst_val = payload.get("dst_category_id")
+    if src_val is None or dst_val is None:
+        raise HTTPException(status_code=422, detail="invalid payload")
     try:
-        src = int(payload.get("src_category_id"))
-        dst = int(payload.get("dst_category_id"))
+        src = int(str(src_val))
+        dst = int(str(dst_val))
     except Exception:
         raise HTTPException(status_code=422, detail="invalid payload")
     try:
@@ -272,7 +276,7 @@ async def list_transactions(
     include_voided: bool = False,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> List[TransactionOut]:
     q = (
         select(Transaction, Account, Category)
         .join(Account, Transaction.account_id == Account.id)
@@ -313,7 +317,7 @@ async def create_transaction(
     data: TransactionCreate,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> TransactionOut:
     try:
         tx = await _create_transaction(session, user_id=current_user.id, data=data)
     except ValueError as e:
@@ -328,7 +332,7 @@ async def get_transaction(
     transaction_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> TransactionOut:
     tx = await _get_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -343,7 +347,7 @@ async def patch_transaction(
     data: TransactionUpdate,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> TransactionOut:
     try:
         tx = await _update_transaction(session, user_id=current_user.id, transaction_id=transaction_id, data=data)
     except DomainConflict as e:
@@ -364,7 +368,7 @@ async def delete_transaction(
     transaction_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> None:
     try:
         ok = await _delete_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
     except DomainConflict as e:
@@ -380,7 +384,7 @@ async def update_transaction_amount(
     data: dict,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> TransactionOut:
     if "amount" not in data:
         raise HTTPException(status_code=422, detail="amount required")
     try:
@@ -407,7 +411,7 @@ async def create_transfer(
     data: TransferCreate,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> TransferResponse:
     try:
         tr, tx_out, tx_in = await _create_transfer(session, user_id=current_user.id, data=data)
     except ValueError as e:
@@ -438,36 +442,7 @@ async def create_transfer(
     return TransferResponse(transfer=out, src_transaction_id=tx_out.id, dst_transaction_id=tx_in.id)
 
 
-@router.get("/transfers/{transfer_id}", response_model=TransferOut)
-async def get_transfer(
-    transfer_id: int,
-    session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-):
-    tr = (await session.execute(select(Transfer).where(Transfer.id == transfer_id, Transfer.user_id == current_user.id))).scalars().first()
-    if not tr:
-        raise HTTPException(status_code=404, detail="Transfer not found")
-    src_amount = cents_to_amount(tr.src_amount_cents, tr.rate_base)
-    dst_amount = cents_to_amount(tr.dst_amount_cents, tr.rate_quote)
-    out = TransferOut(
-        id=tr.id,
-        src_account_id=tr.src_account_id,
-        dst_account_id=tr.dst_account_id,
-        src_amount=src_amount,
-        dst_amount=dst_amount,
-        rate_value=Decimal(str(tr.rate_value)),
-        rate_base=tr.rate_base,
-        rate_quote=tr.rate_quote,
-        occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
-        fx_rate_2dp=_q2(Decimal(str(tr.rate_value))),
-        vet_2dp=_q2(Decimal(str(tr.vet_value)) if tr.vet_value is not None else None),
-        ref_rate_2dp=_q2(Decimal(str(tr.ref_rate_value)) if tr.ref_rate_value is not None else None),
-    )
-    base_fx = out.ref_rate_2dp or out.fx_rate_2dp
-    if base_fx is not None and out.vet_2dp is not None and base_fx != 0:
-        out.fees_per_unit_2dp = (out.vet_2dp - base_fx).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        out.fees_pct = ((out.vet_2dp / base_fx) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    return out
+# (get_transfer defined below once)
 
 
 @router.post("/transfers/{transfer_id}/void", response_model=TransferOut)
@@ -475,7 +450,7 @@ async def void_transfer(
     transfer_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> TransferOut:
     tr = await _void_transfer(session, user_id=current_user.id, transfer_id=transfer_id)
     if not tr:
         raise HTTPException(status_code=404, detail="Transfer not found")
@@ -507,7 +482,7 @@ async def void_transaction(
     transaction_id: int,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> TransactionOut:
     try:
         tx = await _void_transaction(session, user_id=current_user.id, transaction_id=transaction_id)
     except DomainConflict as e:
@@ -540,7 +515,7 @@ async def get_transfer(
         raise HTTPException(status_code=404, detail="Transfer not found")
     src_amount = cents_to_amount(tr.src_amount_cents, tr.rate_base)
     dst_amount = cents_to_amount(tr.dst_amount_cents, tr.rate_quote)
-    return TransferOut(
+    out = TransferOut(
         id=tr.id,
         src_account_id=tr.src_account_id,
         dst_account_id=tr.dst_account_id,
@@ -550,7 +525,15 @@ async def get_transfer(
         rate_base=tr.rate_base,
         rate_quote=tr.rate_quote,
         occurred_at=tr.occurred_at if tr.occurred_at.tzinfo else tr.occurred_at.replace(tzinfo=dt.timezone.utc),
+        fx_rate_2dp=_q2(Decimal(str(tr.rate_value))),
+        vet_2dp=_q2(Decimal(str(tr.vet_value)) if tr.vet_value is not None else None),
+        ref_rate_2dp=_q2(Decimal(str(tr.ref_rate_value)) if tr.ref_rate_value is not None else None),
     )
+    base_fx = out.ref_rate_2dp or out.fx_rate_2dp
+    if base_fx is not None and out.vet_2dp is not None and base_fx != 0:
+        out.fees_per_unit_2dp = (out.vet_2dp - base_fx).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        out.fees_pct = ((out.vet_2dp / base_fx) - Decimal("1")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return out
 
 
 @router.get("/reports/balance-by-account", response_model=List[BalanceByAccountItem])
@@ -561,7 +544,7 @@ async def balance_by_account(
     include_inactive: bool = False,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> List[BalanceByAccountItem]:
     # Default to current UTC month when not provided
     now = dt.datetime.now(dt.timezone.utc)
     year = year or now.year
@@ -615,7 +598,7 @@ async def monthly_by_category(
     include_inactive: bool = False,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-):
+)-> List[MonthlyByCategoryItem]:
     # Fetch transactions + categories for the user
     rows = (await session.execute(
         select(Transaction, Category, Account)
