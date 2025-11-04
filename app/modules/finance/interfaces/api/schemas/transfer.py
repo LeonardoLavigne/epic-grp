@@ -30,6 +30,8 @@ class TransferCreate(BaseModel):
 
 
 class TransferOut(BaseModel):
+    model_config = {"arbitrary_types_allowed": True}
+    
     id: int
     src_account_id: int
     dst_account_id: int
