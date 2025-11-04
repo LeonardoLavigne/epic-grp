@@ -1,16 +1,19 @@
 import asyncio
 import os
 from logging.config import fileConfig
+from typing import Any
 
-from sqlalchemy import pool
+from sqlalchemy import pool, MetaData
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import async_engine_from_config, AsyncEngine
 
 from alembic import context
+# Import Config from alembic
+from alembic.config import Config
 
 # Load environment variables (for DATABASE_URL)
 try:
-    from dotenv import load_dotenv  # type: ignore
+    from dotenv import load_dotenv
 
     load_dotenv()
 except Exception:
@@ -18,7 +21,7 @@ except Exception:
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
-config = context.config
+config: Config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -34,7 +37,7 @@ from app.modules.finance.infrastructure.persistence.models import category as _f
 from app.modules.finance.infrastructure.persistence.models import transaction as _fin_transaction  # noqa: F401, E402
 from app.modules.finance.infrastructure.persistence.models import transfer as _fin_transfer  # noqa: F401, E402
 
-target_metadata = Base.metadata
+target_metadata: MetaData = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -44,13 +47,16 @@ target_metadata = Base.metadata
 
 def get_database_url() -> str:
     # Prefer DATABASE_URL from env; fallback to alembic.ini
-    env_url = os.getenv(
+    env_url: str = os.getenv(
         "DATABASE_URL",
         "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres",
     )
     if env_url:
         return env_url
-    return config.get_main_option("sqlalchemy.url")
+    fallback_url = config.get_main_option("sqlalchemy.url")
+    if fallback_url:
+        return fallback_url
+    raise RuntimeError("Database URL not found in environment or configuration")
 
 
 def run_migrations_offline() -> None:
@@ -65,7 +71,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = get_database_url()
+    url: str = get_database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -93,7 +99,7 @@ async def run_async_migrations() -> None:
     # Build config for engine from resolved URL
     section = config.get_section(config.config_ini_section, {})
     section["sqlalchemy.url"] = get_database_url()
-    connectable = async_engine_from_config(
+    connectable: AsyncEngine = async_engine_from_config(
         section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,

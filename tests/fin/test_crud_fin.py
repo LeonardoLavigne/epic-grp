@@ -1,10 +1,11 @@
 import asyncio
 import datetime as dt
 from decimal import Decimal
+from typing import AsyncGenerator, Sequence, Any
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncEngine
 from sqlalchemy import delete
 
 from app.models.base import Base
@@ -12,9 +13,9 @@ from app.models.user import User
 from app.modules.finance.infrastructure.persistence.models import (
     Transfer,
     Transaction,
-    Account,
-    Category,
 )
+from app.modules.finance.domain.entities.account import Account
+from app.modules.finance.domain.entities.category import Category
 from app.modules.finance.infrastructure.persistence.account import create_account, list_accounts
 from app.modules.finance.infrastructure.persistence.category import create_category
 from app.modules.finance.infrastructure.persistence.transaction import (
@@ -31,7 +32,7 @@ TEST_DB_URL = "sqlite+aiosqlite:///./test_fin_crud.db"
 
 
 @pytest_asyncio.fixture(scope="session")
-async def engine() -> AsyncGenerator[AsyncEngine, Unknown]:
+async def engine() -> AsyncGenerator[AsyncEngine, None]:
     eng: AsyncEngine = create_async_engine(TEST_DB_URL, future=True)
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -41,7 +42,7 @@ async def engine() -> AsyncGenerator[AsyncEngine, Unknown]:
 
 
 @pytest_asyncio.fixture()
-async def session(engine) -> AsyncGenerator[AsyncSession, Unknown]:
+async def session(engine) -> AsyncGenerator[AsyncSession, None]:
     SessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with SessionLocal() as s:
         # Clean users between tests to avoid unique conflicts
@@ -81,12 +82,13 @@ async def test_fin_crud_workflow(session: AsyncSession):
     assert t2.amount_cents == 200
 
     # List
-    txs: Sequence[Unknown] = await list_transactions(session, user_id=1)
+    txs: Sequence[Any] = await list_transactions(session, user_id=1)
     assert len(txs) >= 2
 
-    # Update amount
-    t1u = await update_transaction_amount(session, user_id=1, transaction_id=t1.id, amount=Decimal("3.00"))
-    assert t1u.amount_cents == 300
+    # Update amount (ensure t1.id is not None)
+    if t1.id is not None:
+        t1u = await update_transaction_amount(session, user_id=1, transaction_id=t1.id, amount=Decimal("3.00"))
+        assert t1u.amount_cents == 300
 
 
 @pytest.mark.asyncio
