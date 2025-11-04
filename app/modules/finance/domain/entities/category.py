@@ -1,18 +1,27 @@
-from sqlalchemy import String, UniqueConstraint, ForeignKey, Boolean
-from sqlalchemy.orm import Mapped, mapped_column
+from __future__ import annotations
 
-from app.models.base import Base, TimestampMixin
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 
 
-class Category(TimestampMixin, Base):
-    __tablename__ = "categories"
+class CategoryType(str, Enum):
+    INCOME = "INCOME"
+    EXPENSE = "EXPENSE"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    name: Mapped[str] = mapped_column(String(200))
-    type: Mapped[str] = mapped_column(String(10))  # INCOME | EXPENSE
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "name", "type", name="uq_categories_user_name_type"),
-    )
+@dataclass(slots=True)
+class Category:
+    id: int | None
+    user_id: int
+    name: str
+    type: CategoryType
+    active: bool = True
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def is_income(self) -> bool:
+        return self.type == CategoryType.INCOME
+
+    def is_expense(self) -> bool:
+        return self.type == CategoryType.EXPENSE

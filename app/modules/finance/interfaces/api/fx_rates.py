@@ -1,14 +1,14 @@
 import datetime as dt
-from typing import List
+from typing import List, Any
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.session import get_session
-from app.models.finance.fx_rate import FxRate
-from app.schemas.finance.fx_rate_api import FxRateUpsert, FxRateOut
+from app.modules.finance.infrastructure.persistence.models.fx_rate import FxRate
+from app.modules.finance.interfaces.api.schemas.fx_rate_api import FxRateUpsert, FxRateOut
 
 router = APIRouter(prefix="/fx-rates")
 

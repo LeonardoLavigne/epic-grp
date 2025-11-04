@@ -29,10 +29,10 @@ if config.config_file_name is not None:
 # Import Base and model modules so tables are registered in metadata
 from app.models.base import Base  # noqa: E402
 from app.models import user as _user  # noqa: F401, E402
-from app.models.finance import account as _fin_account  # noqa: F401, E402
-from app.models.finance import category as _fin_category  # noqa: F401, E402
-from app.models.finance import transaction as _fin_transaction  # noqa: F401, E402
-from app.models.finance import transfer as _fin_transfer  # noqa: F401, E402
+from app.modules.finance.infrastructure.persistence.models import account as _fin_account  # noqa: F401, E402
+from app.modules.finance.infrastructure.persistence.models import category as _fin_category  # noqa: F401, E402
+from app.modules.finance.infrastructure.persistence.models import transaction as _fin_transaction  # noqa: F401, E402
+from app.modules.finance.infrastructure.persistence.models import transfer as _fin_transfer  # noqa: F401, E402
 
 target_metadata = Base.metadata
 

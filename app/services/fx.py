@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.finance.fx_rate import FxRate
+from app.modules.finance.infrastructure.persistence.models.fx_rate import FxRate
 
 
 class RateNotFound(Exception):

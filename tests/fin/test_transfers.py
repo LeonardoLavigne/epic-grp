@@ -15,7 +15,7 @@ from app.main import create_app
 from app.db.session import get_session as app_get_session
 from app.models.base import Base
 from app.models.user import User
-from app.models.finance.transaction import Transaction
+from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
 from app.core.security import get_current_user
 
 

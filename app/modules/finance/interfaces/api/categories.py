@@ -1,11 +1,12 @@
+from typing import List, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import get_current_user
 from app.db.session import get_session
 from app.models.user import User
-from app.schemas.finance.category import CategoryCreate, CategoryOut, CategoryUpdate
-from app.crud.finance.category import (
+from app.modules.finance.interfaces.api.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
+from app.modules.finance.infrastructure.persistence.category import (
     create_category as _create_category,
     list_categories as _list_categories,
     update_category as _update_category,
@@ -18,13 +19,22 @@ from app.crud.finance.category import (
 router = APIRouter(prefix="/categories")
 
 
-@router.get("", response_model=list[CategoryOut])
+def _category_to_out(category: Any) -> CategoryOut:
+    """Convert ORM category model to CategoryOut schema."""
+    return CategoryOut(
+        id=category.id,
+        name=category.name,
+        type=category.type
+    )
+
+
+@router.get("", response_model=List[CategoryOut])
 async def list_categories(
     include_inactive: bool = False,
     type: str | None = None,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-) -> list[CategoryOut]:
+) -> List[CategoryOut]:
     type_filter: str | None = None
     if type is not None:
         typ = type.upper()
@@ -34,7 +44,7 @@ async def list_categories(
     items = await _list_categories(session, user_id=current_user.id, type=type_filter)
     if not include_inactive:
         items = [c for c in items if bool(getattr(c, "active", True))]
-    return [CategoryOut.from_orm(c) for c in items]
+    return [_category_to_out(item) for item in items]
 
 
 @router.post("", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
@@ -44,7 +54,7 @@ async def create_category(
     current_user: User = Depends(get_current_user),
 ) -> CategoryOut:
     category = await _create_category(session, user_id=current_user.id, data=data)
-    return CategoryOut.from_orm(category)
+    return _category_to_out(category)
 
 
 @router.post("/{category_id}/deactivate", response_model=CategoryOut)
@@ -61,7 +71,7 @@ async def deactivate_category(
         raise HTTPException(status_code=422, detail=str(e))
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
-    return CategoryOut.from_orm(cat)
+    return _category_to_out(cat)
 
 
 @router.post("/merge")
@@ -100,7 +110,7 @@ async def update_category(
     )
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
-    return CategoryOut.from_orm(cat)
+    return _category_to_out(cat)
 
 
 @router.get("/{category_id}", response_model=CategoryOut)
@@ -112,7 +122,7 @@ async def get_category(
     cat = await _get_category(session, user_id=current_user.id, category_id=category_id)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
-    return CategoryOut.from_orm(cat)
+    return _category_to_out(cat)
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)

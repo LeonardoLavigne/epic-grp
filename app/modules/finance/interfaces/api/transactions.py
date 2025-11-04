@@ -1,6 +1,6 @@
 from decimal import Decimal
 import datetime as dt
-from typing import List
+from typing import List, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,29 +9,32 @@ from sqlalchemy import select
 from app.core.security import get_current_user
 from app.db.session import get_session
 from app.models.user import User
-from app.models.finance.account import Account
-from app.models.finance.category import Category
-from app.models.finance.transaction import Transaction
-from app.schemas.finance.transaction import (
+from app.modules.finance.domain.entities.transaction import Transaction as TransactionEntity
+from app.modules.finance.infrastructure.persistence.models.account import Account
+from app.modules.finance.infrastructure.persistence.models.category import Category
+from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
+from app.modules.finance.interfaces.api.schemas.transaction import (
     TransactionCreate,
     TransactionOut,
     TransactionUpdate,
 )
 from app.core.money import currency_exponent
-from app.crud.finance.transaction import (
+from app.modules.finance.infrastructure.persistence.transaction import (
     create_transaction as _create_transaction,
     update_transaction_amount as _update_transaction_amount,
     get_transaction as _get_transaction,
     update_transaction as _update_transaction,
     delete_transaction as _delete_transaction,
 )
-from app.crud.finance.transaction import void_transaction as _void_transaction
+from app.modules.finance.infrastructure.persistence.transaction import void_transaction as _void_transaction
 from app.crud.errors import DomainConflict
 
 router = APIRouter(prefix="/transactions")
 
 
-def _present_tx(tx: Transaction, currency: str) -> TransactionOut:
+def _present_tx(tx: TransactionEntity, currency: str) -> TransactionOut:
+    if tx.id is None:
+        raise ValueError("Transaction ID cannot be None")
     exp = currency_exponent(currency)
     amount = (Decimal(tx.amount_cents) / (Decimal(10) ** exp)).quantize(
         Decimal(1).scaleb(-exp)
@@ -108,7 +111,22 @@ async def list_transactions(
     result: list[TransactionOut] = []
     for tx, acc, cat in rows:
         currency = acc.currency if acc else "EUR"
-        result.append(_present_tx(tx, currency))
+        # Convert ORM model to domain entity for _present_tx
+        from app.modules.finance.domain.entities.transaction import Transaction as TransactionEntity
+        tx_entity = TransactionEntity(
+            id=tx.id,
+            user_id=tx.user_id,
+            account_id=tx.account_id,
+            category_id=tx.category_id,
+            amount_cents=tx.amount_cents,
+            occurred_at=tx.occurred_at,
+            description=tx.description,
+            transfer_id=tx.transfer_id,
+            voided=bool(tx.voided),
+            created_at=tx.created_at,
+            updated_at=tx.updated_at,
+        )
+        result.append(_present_tx(tx_entity, currency))
     return result
 
 
@@ -128,6 +146,8 @@ async def create_transaction(
         .first()
     )
     currency = acc.currency if acc else "EUR"
+    # Convert domain entity to domain entity (no conversion needed)
+    # Convert domain entity to domain entity (no conversion needed)
     return _present_tx(tx, currency)
 
 
@@ -148,6 +168,7 @@ async def get_transaction(
         .first()
     )
     currency = acc.currency if acc else "EUR"
+    # Convert domain entity to domain entity (no conversion needed)
     return _present_tx(tx, currency)
 
 
@@ -226,6 +247,7 @@ async def update_transaction_amount(
         .first()
     )
     currency = acc.currency if acc else "EUR"
+    # Convert domain entity to domain entity (no conversion needed)
     return _present_tx(tx, currency)
 
 
@@ -249,4 +271,5 @@ async def void_transaction(
         .first()
     )
     currency = acc.currency if acc else "EUR"
+    # Convert domain entity to domain entity (no conversion needed)
     return _present_tx(tx, currency)

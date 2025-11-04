@@ -11,7 +11,7 @@ from app.main import create_app
 from app.db.session import get_session as app_get_session
 from app.models.base import Base
 from app.models.user import User
-from app.models.finance.fx_rate import FxRate
+from app.modules.finance.infrastructure.persistence.models.fx_rate import FxRate
 from app.core.security import get_current_user
 
 

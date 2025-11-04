@@ -52,9 +52,9 @@ class GenerateReportsUseCase:
         self, request: GenerateBalanceByAccountRequest
     ) -> List[BalanceByAccountItem]:
         """Generate balance by account report."""
-        from app.models.finance.account import Account
-        from app.models.finance.category import Category
-        from app.models.finance.transaction import Transaction
+        from app.modules.finance.infrastructure.persistence.models.account import Account
+        from app.modules.finance.infrastructure.persistence.models.category import Category
+        from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
         from sqlalchemy import select
 
         # Fetch accounts for user
@@ -135,9 +135,9 @@ class GenerateReportsUseCase:
         self, request: GenerateMonthlyByCategoryRequest
     ) -> List[MonthlyByCategoryItem]:
         """Generate monthly by category report."""
-        from app.models.finance.account import Account
-        from app.models.finance.category import Category
-        from app.models.finance.transaction import Transaction
+        from app.modules.finance.infrastructure.persistence.models.account import Account
+        from app.modules.finance.infrastructure.persistence.models.category import Category
+        from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
         from sqlalchemy import select
 
         # Fetch transactions

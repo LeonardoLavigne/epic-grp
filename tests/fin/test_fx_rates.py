@@ -55,7 +55,7 @@ async def test_get_rate_base_equals_quote(setup_db):
 @pytest.mark.asyncio
 async def test_get_rate_found(setup_db):
     # Insert one rate directly using ORM
-    from app.models.finance.fx_rate import FxRate
+    from app.modules.finance.infrastructure.persistence.models.fx_rate import FxRate
 
     async_session = setup_db
     async with async_session() as s:

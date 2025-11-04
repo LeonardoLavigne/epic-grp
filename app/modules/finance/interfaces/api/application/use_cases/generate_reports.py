@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 import datetime as dt
-from typing import List
+from typing import List, Any
 
 from app.core.money import cents_to_amount, quantize_amount
 from app.services.fx import get_rate, RateNotFound
@@ -45,7 +45,7 @@ class MonthlyByCategoryItem:
 class GenerateReportsUseCase:
     """Use case for generating financial reports with complex aggregations."""
 
-    def __init__(self, session):
+    def __init__(self, session: Any) -> None:
         self.session = session
 
     async def generate_balance_by_account(
@@ -204,7 +204,7 @@ class GenerateReportsUseCase:
                 ))
         return result
 
-    async def _convert_amount(self, tx, acc, target_currency: str, sign: int) -> Decimal:
+    async def _convert_amount(self, tx: Any, acc: Any, target_currency: str, sign: int) -> Decimal:
         """Convert transaction amount to target currency."""
         src_cur = acc.currency
         amt_dec = cents_to_amount(tx.amount_cents, src_cur)

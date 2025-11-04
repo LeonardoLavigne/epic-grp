@@ -1,19 +1,24 @@
+from __future__ import annotations
+
 from typing import Sequence
 
-from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.finance.account import Account
-from app.models.finance.transaction import Transaction
-from app.schemas.finance.account import AccountCreate, AccountUpdate
+from app.modules.finance.domain.entities.account import Account
+from app.modules.finance.domain.repositories.accounts import AccountCreateData, AccountUpdateData
+from app.modules.finance.infrastructure.persistence.repositories.accounts import SQLAlchemyAccountRepository
+from app.modules.finance.interfaces.api.schemas.account import AccountCreate, AccountUpdate
+
+
+def _repository(session: AsyncSession) -> SQLAlchemyAccountRepository:
+    return SQLAlchemyAccountRepository(session)
 
 
 async def create_account(session: AsyncSession, *, user_id: int, data: AccountCreate) -> Account:
-    acc = Account(user_id=user_id, name=data.name, currency=data.currency)
-    session.add(acc)
-    await session.commit()
-    await session.refresh(acc)
-    return acc
+    repo = _repository(session)
+    return await repo.create(
+        AccountCreateData(user_id=user_id, name=data.name, currency=data.currency)
+    )
 
 
 async def list_accounts(
@@ -24,56 +29,50 @@ async def list_accounts(
     limit: int = 100,
     name: str | None = None,
 ) -> Sequence[Account]:
-    q = select(Account).where(Account.user_id == user_id)
-    if name:
-        # case-insensitive contains filter, portable across SQLite/Postgres
-        pattern = f"%{name.lower()}%"
-        q = q.where(func.lower(Account.name).like(pattern))
-    q = q.offset(skip).limit(limit)
-    res = await session.execute(q)
-    return res.scalars().all()
+    repo = _repository(session)
+    return await repo.list_by_user(user_id, skip=skip, limit=limit, name=name)
 
 
-async def update_account(session: AsyncSession, *, user_id: int, account_id: int, data: AccountUpdate) -> Account | None:
-    res = await session.execute(select(Account).where(Account.id == account_id, Account.user_id == user_id))
-    acc = res.scalars().first()
-    if not acc:
-        return None
-    if data.name is not None:
-        acc.name = data.name
-    if data.currency is not None:
-        acc.currency = data.currency
-    session.add(acc)
-    await session.commit()
-    await session.refresh(acc)
-    return acc
+async def update_account(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    account_id: int,
+    data: AccountUpdate,
+) -> Account | None:
+    repo = _repository(session)
+    return await repo.update(
+        user_id,
+        account_id,
+        AccountUpdateData(name=data.name, currency=data.currency),
+    )
 
 
-async def get_account(session: AsyncSession, *, user_id: int, account_id: int) -> Account | None:
-    res = await session.execute(select(Account).where(Account.id == account_id, Account.user_id == user_id))
-    return res.scalars().first()
+async def get_account(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    account_id: int,
+) -> Account | None:
+    repo = _repository(session)
+    return await repo.get_by_id(user_id, account_id)
 
 
-async def delete_account(session: AsyncSession, *, user_id: int, account_id: int) -> bool:
-    res = await session.execute(select(Account).where(Account.id == account_id, Account.user_id == user_id))
-    acc = res.scalars().first()
-    if not acc:
-        return False
-    # check usage
-    used = await session.execute(select(Transaction.id).where(Transaction.account_id == account_id).limit(1))
-    if used.first():
-        raise ValueError("account in use")
-    await session.delete(acc)
-    await session.commit()
-    return True
+async def delete_account(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    account_id: int,
+) -> bool:
+    repo = _repository(session)
+    return await repo.delete(user_id, account_id)
 
 
-async def close_account(session: AsyncSession, *, user_id: int, account_id: int) -> Account | None:
-    acc = await get_account(session, user_id=user_id, account_id=account_id)
-    if not acc:
-        return None
-    acc.status = "CLOSED"
-    session.add(acc)
-    await session.commit()
-    await session.refresh(acc)
-    return acc
+async def close_account(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    account_id: int,
+) -> Account | None:
+    repo = _repository(session)
+    return await repo.close(user_id, account_id)

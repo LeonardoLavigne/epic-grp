@@ -1,18 +1,28 @@
-from sqlalchemy import String, UniqueConstraint, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from __future__ import annotations
 
-from app.models.base import Base, TimestampMixin
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
 
 
-class Account(TimestampMixin, Base):
-    __tablename__ = "accounts"
+class AccountStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    CLOSED = "CLOSED"
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    name: Mapped[str] = mapped_column(String(200))
-    currency: Mapped[str] = mapped_column(String(3), default="EUR")
-    status: Mapped[str] = mapped_column(String(10), default="ACTIVE")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "name", name="uq_accounts_user_name"),
-    )
+@dataclass(slots=True)
+class Account:
+    id: int | None
+    user_id: int
+    name: str
+    currency: str
+    status: AccountStatus = AccountStatus.ACTIVE
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def is_active(self) -> bool:
+        return self.status == AccountStatus.ACTIVE
+
+    def is_closed(self) -> bool:
+        return self.status == AccountStatus.CLOSED

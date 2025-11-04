@@ -1,76 +1,76 @@
+from __future__ import annotations
+
 from typing import Sequence
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.finance.category import Category
-from app.models.finance.transaction import Transaction
-from app.schemas.finance.category import CategoryCreate, CategoryUpdate
-
-# System categories used by transfers (should not be deactivated/deleted/merged)
-SYSTEM_CATEGORIES = {("Transfer In", "INCOME"), ("Transfer Out", "EXPENSE")}
-
-
-async def create_category(session: AsyncSession, *, user_id: int, data: CategoryCreate) -> Category:
-    cat = Category(user_id=user_id, name=data.name, type=data.type)
-    session.add(cat)
-    await session.commit()
-    await session.refresh(cat)
-    return cat
+from app.modules.finance.domain.entities.category import Category, CategoryType
+from app.modules.finance.domain.repositories.categories import (
+    CategoryCreateData,
+    CategoryUpdateData,
+)
+from app.modules.finance.infrastructure.persistence.repositories.categories import (
+    SQLAlchemyCategoryRepository,
+)
+from app.modules.finance.interfaces.api.schemas.category import (
+    CategoryCreate,
+    CategoryUpdate,
+)
 
 
-async def get_category(session: AsyncSession, *, user_id: int, category_id: int) -> Category | None:
-    res = await session.execute(select(Category).where(Category.id == category_id, Category.user_id == user_id))
-    return res.scalars().first()
+def _repository(session: AsyncSession) -> SQLAlchemyCategoryRepository:
+    return SQLAlchemyCategoryRepository(session)
 
 
-async def delete_category(session: AsyncSession, *, user_id: int, category_id: int) -> bool:
-    res = await session.execute(select(Category).where(Category.id == category_id, Category.user_id == user_id))
-    cat = res.scalars().first()
-    if not cat:
-        return False
-    if (cat.name, cat.type) in SYSTEM_CATEGORIES:
-        raise ValueError("cannot delete system category used by transfers")
-    used = await session.execute(select(Transaction.id).where(Transaction.category_id == category_id).limit(1))
-    if used.first():
-        raise ValueError("category in use")
-    await session.delete(cat)
-    await session.commit()
-    return True
-
-
-async def deactivate_category(session: AsyncSession, *, user_id: int, category_id: int) -> Category | None:
-    cat = await get_category(session, user_id=user_id, category_id=category_id)
-    if not cat:
+def _parse_type(value: str | None) -> CategoryType | None:
+    if value is None:
         return None
-    if (cat.name, cat.type) in SYSTEM_CATEGORIES:
-        raise ValueError("cannot deactivate system category used by transfers")
-    cat.active = False
-    session.add(cat)
-    await session.commit()
-    await session.refresh(cat)
-    return cat
+    return CategoryType(value)
 
 
-async def merge_categories(session: AsyncSession, *, user_id: int, src_category_id: int, dst_category_id: int) -> int:
-    # reassign transactions from src to dst
-    if src_category_id == dst_category_id:
-        return 0
-    dst = await get_category(session, user_id=user_id, category_id=dst_category_id)
-    src = await get_category(session, user_id=user_id, category_id=src_category_id)
-    if not src or not dst:
-        raise ValueError("category not found")
-    if (src.name, src.type) in SYSTEM_CATEGORIES or (dst.name, dst.type) in SYSTEM_CATEGORIES:
-        raise ValueError("cannot merge system category used by transfers")
-    res = await session.execute(select(Transaction).where(Transaction.user_id == user_id, Transaction.category_id == src_category_id))
-    txs = res.scalars().all()
-    count = 0
-    for tx in txs:
-        tx.category_id = dst_category_id
-        session.add(tx)
-        count += 1
-    await session.commit()
-    return count
+async def create_category(
+    session: AsyncSession, *, user_id: int, data: CategoryCreate
+) -> Category:
+    repo = _repository(session)
+    return await repo.create(
+        CategoryCreateData(
+            user_id=user_id,
+            name=data.name,
+            type=CategoryType(data.type),
+        )
+    )
+
+
+async def get_category(
+    session: AsyncSession, *, user_id: int, category_id: int
+) -> Category | None:
+    repo = _repository(session)
+    return await repo.get_by_id(user_id, category_id)
+
+
+async def delete_category(
+    session: AsyncSession, *, user_id: int, category_id: int
+) -> bool:
+    repo = _repository(session)
+    return await repo.delete(user_id, category_id)
+
+
+async def deactivate_category(
+    session: AsyncSession, *, user_id: int, category_id: int
+) -> Category | None:
+    repo = _repository(session)
+    return await repo.deactivate(user_id, category_id)
+
+
+async def merge_categories(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    src_category_id: int,
+    dst_category_id: int,
+) -> int:
+    repo = _repository(session)
+    return await repo.merge(user_id, src_category_id, dst_category_id)
 
 
 async def list_categories(
@@ -81,24 +81,27 @@ async def list_categories(
     limit: int = 100,
     type: str | None = None,
 ) -> Sequence[Category]:
-    q = select(Category).where(Category.user_id == user_id)
-    if type is not None:
-        q = q.where(Category.type == type)
-    q = q.offset(skip).limit(limit)
-    res = await session.execute(q)
-    return res.scalars().all()
+    repo = _repository(session)
+    type_filter = _parse_type(type)
+    return await repo.list_by_user(
+        user_id,
+        type_filter=type_filter,
+        include_inactive=True,
+        skip=skip,
+        limit=limit,
+    )
 
 
-async def update_category(session: AsyncSession, *, user_id: int, category_id: int, data: CategoryUpdate) -> Category | None:
-    res = await session.execute(select(Category).where(Category.id == category_id, Category.user_id == user_id))
-    cat = res.scalars().first()
-    if not cat:
-        return None
-    if data.name is not None:
-        cat.name = data.name
-    if data.type is not None:
-        cat.type = data.type
-    session.add(cat)
-    await session.commit()
-    await session.refresh(cat)
-    return cat
+async def update_category(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    category_id: int,
+    data: CategoryUpdate,
+) -> Category | None:
+    repo = _repository(session)
+    update_data = CategoryUpdateData(
+        name=data.name,
+        type=_parse_type(data.type),
+    )
+    return await repo.update(user_id, category_id, update_data)
