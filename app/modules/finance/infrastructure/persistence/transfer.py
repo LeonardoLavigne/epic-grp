@@ -4,12 +4,12 @@ import datetime as dt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.finance.account import Account
-from app.models.finance.category import Category
-from app.models.finance.transaction import Transaction
-from app.models.finance.transfer import Transfer
+from app.modules.finance.infrastructure.persistence.models.account import Account
+from app.modules.finance.infrastructure.persistence.models.category import Category
+from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
+from app.modules.finance.infrastructure.persistence.models.transfer import Transfer
 from app.core.money import currency_exponent, amount_to_cents, validate_amount_for_currency
-from app.schemas.finance.transfer import TransferCreate
+from app.modules.finance.interfaces.api.schemas.transfer import TransferCreate
 from app.services.fx import get_rate, RateNotFound
 
 

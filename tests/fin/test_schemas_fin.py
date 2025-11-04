@@ -3,9 +3,9 @@ from decimal import Decimal
 
 import pytest
 
-from app.schemas.finance.account import AccountCreate
-from app.schemas.finance.category import CategoryCreate
-from app.schemas.finance.transaction import TransactionCreate
+from app.modules.finance.interfaces.api.schemas.account import AccountCreate
+from app.modules.finance.interfaces.api.schemas.category import CategoryCreate
+from app.modules.finance.interfaces.api.schemas.transaction import TransactionCreate
 from app.core.money import amount_to_cents
 
 

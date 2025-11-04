@@ -4,10 +4,9 @@ import datetime as dt
 from typing import TYPE_CHECKING
 
 from app.core.money import cents_to_amount
-from app.crud.finance import transfer as transfer_crud, transaction as transaction_crud
 
 if TYPE_CHECKING:
-    from app.schemas.finance.transfer import TransferCreate, TransferOut
+    from app.modules.finance.interfaces.api.schemas.transfer import TransferCreate, TransferOut
 
 
 @dataclass
@@ -26,7 +25,7 @@ class CreateTransferResponse:
 class CreateTransferUseCase:
     """Use case for creating transfers with fee calculations."""
 
-    def __init__(self, transfer_crud, transaction_crud) -> None:  # type: ignore
+    def __init__(self, transfer_crud, transaction_crud):
         self.transfer_crud = transfer_crud
         self.transaction_crud = transaction_crud
 
@@ -45,14 +44,14 @@ class CreateTransferUseCase:
             dst_transaction_id=tx_in.id
         )
 
-    def _build_transfer_dto(self, transfer) -> "TransferOut":  # type: ignore
+    def _build_transfer_dto(self, transfer) -> "TransferOut":
         """Build TransferOut DTO with calculated fees."""
         # Present amounts and rate in Decimals according to currency
         src_amount = cents_to_amount(transfer.src_amount_cents, transfer.rate_base)
         dst_amount = cents_to_amount(transfer.dst_amount_cents, transfer.rate_quote)
 
         # Build the base transfer DTO
-        from app.schemas.finance.transfer import TransferOut
+        from app.modules.finance.interfaces.api.schemas.transfer import TransferOut
         out = TransferOut(
             id=transfer.id,
             src_account_id=transfer.src_account_id,

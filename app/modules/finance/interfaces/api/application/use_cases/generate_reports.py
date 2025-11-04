@@ -3,11 +3,7 @@ from decimal import Decimal
 import datetime as dt
 from typing import List
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.money import cents_to_amount, quantize_amount
-from app.models.finance.account import Account
-from app.models.finance.transaction import Transaction
 from app.services.fx import get_rate, RateNotFound
 
 
@@ -49,16 +45,16 @@ class MonthlyByCategoryItem:
 class GenerateReportsUseCase:
     """Use case for generating financial reports with complex aggregations."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session):
         self.session = session
 
     async def generate_balance_by_account(
         self, request: GenerateBalanceByAccountRequest
     ) -> List[BalanceByAccountItem]:
         """Generate balance by account report."""
-        from app.models.finance.account import Account
-        from app.models.finance.category import Category
-        from app.models.finance.transaction import Transaction
+        from app.modules.finance.infrastructure.persistence.models.account import Account
+        from app.modules.finance.infrastructure.persistence.models.category import Category
+        from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
         from sqlalchemy import select
 
         # Fetch accounts for user
@@ -139,9 +135,9 @@ class GenerateReportsUseCase:
         self, request: GenerateMonthlyByCategoryRequest
     ) -> List[MonthlyByCategoryItem]:
         """Generate monthly by category report."""
-        from app.models.finance.account import Account
-        from app.models.finance.category import Category
-        from app.models.finance.transaction import Transaction
+        from app.modules.finance.infrastructure.persistence.models.account import Account
+        from app.modules.finance.infrastructure.persistence.models.category import Category
+        from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
         from sqlalchemy import select
 
         # Fetch transactions
@@ -208,7 +204,7 @@ class GenerateReportsUseCase:
                 ))
         return result
 
-    async def _convert_amount(self, tx: Transaction, acc: Account, target_currency: str, sign: int) -> Decimal:
+    async def _convert_amount(self, tx, acc, target_currency: str, sign: int) -> Decimal:
         """Convert transaction amount to target currency."""
         src_cur = acc.currency
         amt_dec = cents_to_amount(tx.amount_cents, src_cur)

@@ -9,17 +9,18 @@ from sqlalchemy import select
 from app.core.security import get_current_user
 from app.db.session import get_session
 from app.models.user import User
-from app.models.finance.account import Account
-from app.models.finance.category import Category
-from app.models.finance.transaction import Transaction
-from app.schemas.finance.reports import BalanceByAccountItem, MonthlyByCategoryItem
+from app.modules.finance.infrastructure.persistence.models.account import Account
+from app.modules.finance.infrastructure.persistence.models.category import Category
+from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
+from app.modules.finance.interfaces.api.schemas.reports import BalanceByAccountItem, MonthlyByCategoryItem
 from app.services.fx import get_rate, RateNotFound
 from app.core.money import cents_to_amount, quantize_amount
-from app.api.routes.finance.application.use_cases.generate_reports import (
+from app.modules.finance.application.use_cases.generate_reports import (
     GenerateReportsUseCase,
     GenerateBalanceByAccountRequest,
     GenerateMonthlyByCategoryRequest,
 )
+from app.modules.finance.interfaces.api.schemas.reports import BalanceByAccountItem, MonthlyByCategoryItem
 
 router = APIRouter(prefix="/reports")
 
@@ -38,97 +39,32 @@ async def balance_by_account(
     now = dt.datetime.now(dt.timezone.utc)
     year = year or now.year
     month = month or now.month
-    # Fetch accounts for user
-    acc_rows = (
-        (
-            await session.execute(
-                select(Account).where(Account.user_id == current_user.id)
-            )
-        )
-        .scalars()
-        .all()
+
+    # Use hexagonal use case
+    use_case = GenerateReportsUseCase(session)
+    request = GenerateBalanceByAccountRequest(
+        user_id=current_user.id,
+        year=year,
+        month=month,
+        include_closed=include_closed,
+        include_inactive=include_inactive,
+        report_currency=report_currency
     )
-    if not include_closed:
-        acc_rows = [a for a in acc_rows if getattr(a, "status", "ACTIVE") != "CLOSED"]
-    # Initialize map
-    totals_cents: dict[int, int] = {a.id: 0 for a in acc_rows}
-    totals_report: dict[int, Decimal] | None = None
-    target = (report_currency or "").upper() or None
-    if target:
-        totals_report = {a.id: Decimal("0") for a in acc_rows}
-
-    # Fetch transactions with categories (exclude voided)
-    tx_rows = (
-        await session.execute(
-            select(Transaction, Category, Account)
-            .join(Account, Transaction.account_id == Account.id)
-            .join(Category, Transaction.category_id == Category.id, isouter=True)
-            .where(Transaction.user_id == current_user.id)
-            .where(Transaction.voided.is_(False))
+    try:
+        result = await use_case.generate_balance_by_account(request)
+        # Convert to schema types
+        return [
+            BalanceByAccountItem(
+                account_id=item.account_id,
+                currency=item.currency,
+                balance=item.balance
+            )
+            for item in result
+        ]
+    except RateNotFound:
+        raise HTTPException(
+            status_code=422, detail="missing fx rate for conversion"
         )
-    ).all()
-
-    for tx, cat, acc in tx_rows:
-        occ = tx.occurred_at
-        if occ.tzinfo is not None:
-            occ = occ.astimezone(dt.timezone.utc)
-        # SQLite may be naive; treat as UTC
-        if occ.year != year or occ.month != month:
-            continue
-        # skip transactions from closed accounts unless included
-        if not include_closed and acc and getattr(acc, "status", "ACTIVE") == "CLOSED":
-            continue
-        # IMPORTANT: For balance-by-account, category active/inactive must NOT
-        # exclude the transaction from the account balance; category is a label.
-        # Therefore, do not filter out inactive categories here.
-        sign = 1
-        if cat is not None and cat.type.upper() == "EXPENSE":
-            sign = -1
-        if target and acc:
-            src_cur = acc.currency
-            amt_dec = cents_to_amount(tx.amount_cents, src_cur)
-            if src_cur.upper() == target:
-                val = amt_dec * sign
-            else:
-                try:
-                    rate = await get_rate(
-                        session, date=occ.date(), base=src_cur, quote=target
-                    )
-                except RateNotFound:
-                    raise HTTPException(
-                        status_code=422, detail="missing fx rate for conversion"
-                    )
-                val = (amt_dec * rate) * sign
-            assert totals_report is not None
-            totals_report[tx.account_id] = (
-                totals_report.get(tx.account_id, Decimal("0")) + val
-            )
-        else:
-            totals_cents[tx.account_id] = totals_cents.get(tx.account_id, 0) + (
-                sign * tx.amount_cents
-            )
-
-    # Present
-    out: list[BalanceByAccountItem] = []
-    for a in acc_rows:
-        if target and totals_report is not None:
-            cur = target
-            bal = totals_report.get(a.id, Decimal("0"))
-            # round to target exponent
-            out.append(
-                BalanceByAccountItem(
-                    account_id=a.id, currency=cur, balance=quantize_amount(bal, cur)
-                )
-            )
-        else:
-            out.append(
-                BalanceByAccountItem(
-                    account_id=a.id,
-                    currency=a.currency,
-                    balance=cents_to_amount(totals_cents.get(a.id, 0), a.currency),
-                )
-            )
-    return out
 
 
 @router.get("/monthly-by-category", response_model=List[MonthlyByCategoryItem])
@@ -141,80 +77,29 @@ async def monthly_by_category(
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> List[MonthlyByCategoryItem]:
-    # Fetch transactions + categories for the user
-    rows = (
-        await session.execute(
-            select(Transaction, Category, Account)
-            .join(Account, Transaction.account_id == Account.id)
-            .join(Category, Transaction.category_id == Category.id, isouter=True)
-            .where(Transaction.user_id == current_user.id)
-            .where(Transaction.voided.is_(False))
+    # Use hexagonal use case
+    use_case = GenerateReportsUseCase(session)
+    request = GenerateMonthlyByCategoryRequest(
+        user_id=current_user.id,
+        year=year,
+        month=month,
+        include_closed=include_closed,
+        include_inactive=include_inactive,
+        report_currency=report_currency
+    )
+    try:
+        result = await use_case.generate_monthly_by_category(request)
+        # Convert to schema types
+        return [
+            MonthlyByCategoryItem(
+                category_id=item.category_id,
+                category_name=item.category_name,
+                type=item.type,
+                total=item.total
+            )
+            for item in result
+        ]
+    except RateNotFound:
+        raise HTTPException(
+            status_code=422, detail="missing fx rate for conversion"
         )
-    ).all()
-
-    # Aggregate in Python for the given year/month
-    agg_cents: dict[tuple[int, str, str], int] = {}
-    agg_report: dict[tuple[int, str, str], Decimal] | None = None
-    target = (report_currency or "").upper() or None
-    if target:
-        agg_report = {}
-    for tx, cat, acc in rows:
-        occ = tx.occurred_at
-        if occ.tzinfo is not None:
-            occ = occ.astimezone(dt.timezone.utc)
-        # SQLite may be naive; treat as UTC
-        if occ.year != year or occ.month != month:
-            continue
-        # skip closed accounts unless included
-        if not include_closed and acc and getattr(acc, "status", "ACTIVE") == "CLOSED":
-            continue
-        if cat is None:
-            # skip uncategorized for this report
-            continue
-        # skip inactive categories unless included
-        if not include_inactive and not bool(getattr(cat, "active", True)):
-            continue
-        key = (cat.id, cat.type.upper(), cat.name)
-        sign = -1 if cat.type.upper() == "EXPENSE" else 1
-        if target and acc:
-            src_cur = acc.currency
-            amt_dec = cents_to_amount(tx.amount_cents, src_cur)
-            if src_cur.upper() == target:
-                val = amt_dec * sign
-            else:
-                try:
-                    rate = await get_rate(
-                        session, date=occ.date(), base=src_cur, quote=target
-                    )
-                except RateNotFound:
-                    raise HTTPException(
-                        status_code=422, detail="missing fx rate for conversion"
-                    )
-                val = (amt_dec * rate) * sign
-            assert agg_report is not None
-            agg_report[key] = agg_report.get(key, Decimal("0")) + val
-        else:
-            agg_cents[key] = agg_cents.get(key, 0) + sign * tx.amount_cents
-
-    out: list[MonthlyByCategoryItem] = []
-    if target and agg_report is not None:
-        for (cat_id, typ, name), dec_total in agg_report.items():
-            out.append(
-                MonthlyByCategoryItem(
-                    category_id=cat_id,
-                    category_name=name,
-                    type=typ,
-                    total=quantize_amount(dec_total, target),
-                )
-            )
-    else:
-        for (cat_id, typ, name), cents in agg_cents.items():
-            out.append(
-                MonthlyByCategoryItem(
-                    category_id=cat_id,
-                    category_name=name,
-                    type=typ,
-                    total=cents_to_amount(cents, "EUR"),
-                )
-            )
-    return out

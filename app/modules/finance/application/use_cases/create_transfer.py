@@ -2,11 +2,13 @@ from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 import datetime as dt
 from typing import TYPE_CHECKING
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.money import cents_to_amount
 
 if TYPE_CHECKING:
-    from app.schemas.finance.transfer import TransferCreate, TransferOut
+    from app.modules.finance.interfaces.api.schemas.transfer import TransferCreate, TransferOut
+    from app.modules.finance.infrastructure.persistence.models.transfer import Transfer
 
 
 @dataclass
@@ -25,11 +27,11 @@ class CreateTransferResponse:
 class CreateTransferUseCase:
     """Use case for creating transfers with fee calculations."""
 
-    def __init__(self, transfer_crud, transaction_crud) -> None:
+    def __init__(self, transfer_crud, transaction_crud) -> None:  # type: ignore
         self.transfer_crud = transfer_crud
         self.transaction_crud = transaction_crud
 
-    async def execute(self, request: CreateTransferRequest, session) -> CreateTransferResponse:
+    async def execute(self, request: CreateTransferRequest, session: "AsyncSession") -> CreateTransferResponse:
         """Execute the create transfer use case."""
         # Create the transfer using CRUD
         tr, tx_out, tx_in = await self.transfer_crud.create_transfer(
@@ -44,14 +46,14 @@ class CreateTransferUseCase:
             dst_transaction_id=tx_in.id
         )
 
-    def _build_transfer_dto(self, transfer) -> "TransferOut":
+    def _build_transfer_dto(self, transfer: "Transfer") -> "TransferOut":
         """Build TransferOut DTO with calculated fees."""
         # Present amounts and rate in Decimals according to currency
         src_amount: Decimal = cents_to_amount(transfer.src_amount_cents, transfer.rate_base)
         dst_amount: Decimal = cents_to_amount(transfer.dst_amount_cents, transfer.rate_quote)
 
         # Build the base transfer DTO
-        from app.schemas.finance.transfer import TransferOut
+        from app.modules.finance.interfaces.api.schemas.transfer import TransferOut
         out = TransferOut(
             id=transfer.id,
             src_account_id=transfer.src_account_id,
