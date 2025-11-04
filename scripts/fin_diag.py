@@ -7,18 +7,18 @@ from pathlib import Path
 from decimal import Decimal
 
 # Ensure project root is on sys.path when running as a script
-ROOT = Path(__file__).resolve().parents[1]
+ROOT: Path = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import select
 
-from app.models.base import Base
-from app.models.finance.account import Account
-from app.models.finance.category import Category
-from app.models.finance.transaction import Transaction
-from app.models.finance.transfer import Transfer
+from app.db.base import Base
+from app.modules.finance.infrastructure.persistence.models.account import Account
+from app.modules.finance.infrastructure.persistence.models.category import Category
+from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
+from app.modules.finance.infrastructure.persistence.models.transfer import Transfer
 from dotenv import load_dotenv
 
 

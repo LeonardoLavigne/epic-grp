@@ -1,32 +1,39 @@
 import asyncio
 import datetime as dt
 from decimal import Decimal
+from typing import AsyncGenerator, Sequence, Any
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession, AsyncEngine
 from sqlalchemy import delete
 
-from app.models.base import Base
-from app.models.user import User
-from app.crud.finance.account import create_account, list_accounts
-from app.crud.finance.category import create_category
-from app.crud.finance.transaction import (
+from app.db.base import Base
+from app.core.auth.persistence.models.user import User
+from app.modules.finance.infrastructure.persistence.models import (
+    Transfer,
+    Transaction,
+)
+from app.modules.finance.domain.entities.account import Account
+from app.modules.finance.domain.entities.category import Category
+from app.modules.finance.infrastructure.persistence.account import create_account, list_accounts
+from app.modules.finance.infrastructure.persistence.category import create_category
+from app.modules.finance.infrastructure.persistence.transaction import (
     create_transaction,
     list_transactions,
     update_transaction_amount,
 )
-from app.schemas.finance.account import AccountCreate
-from app.schemas.finance.category import CategoryCreate
-from app.schemas.finance.transaction import TransactionCreate
+from app.modules.finance.interfaces.api.schemas.account import AccountCreate
+from app.modules.finance.interfaces.api.schemas.category import CategoryCreate
+from app.modules.finance.interfaces.api.schemas.transaction import TransactionCreate
 
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test_fin_crud.db"
 
 
 @pytest_asyncio.fixture(scope="session")
-async def engine():
-    eng = create_async_engine(TEST_DB_URL, future=True)
+async def engine() -> AsyncGenerator[AsyncEngine, None]:
+    eng: AsyncEngine = create_async_engine(TEST_DB_URL, future=True)
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield eng
@@ -35,8 +42,8 @@ async def engine():
 
 
 @pytest_asyncio.fixture()
-async def session(engine):
-    SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+async def session(engine) -> AsyncGenerator[AsyncSession, None]:
+    SessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
     async with SessionLocal() as s:
         # Clean users between tests to avoid unique conflicts
         await s.execute(delete(User))
@@ -55,9 +62,9 @@ async def session(engine):
 @pytest.mark.asyncio
 async def test_fin_crud_workflow(session: AsyncSession):
     # Create account and categories for user 1
-    acc = await create_account(session, user_id=1, data=AccountCreate(name="Main"))
-    cat_income = await create_category(session, user_id=1, data=CategoryCreate(name="Salary", type="INCOME"))
-    cat_exp = await create_category(session, user_id=1, data=CategoryCreate(name="Food", type="EXPENSE"))
+    acc: Account = await create_account(session, user_id=1, data=AccountCreate(name="Main"))
+    cat_income: Category = await create_category(session, user_id=1, data=CategoryCreate(name="Salary", type="INCOME"))
+    cat_exp: Category = await create_category(session, user_id=1, data=CategoryCreate(name="Food", type="EXPENSE"))
 
     # Create transactions
     t1 = await create_transaction(
@@ -75,18 +82,19 @@ async def test_fin_crud_workflow(session: AsyncSession):
     assert t2.amount_cents == 200
 
     # List
-    txs = await list_transactions(session, user_id=1)
+    txs: Sequence[Any] = await list_transactions(session, user_id=1)
     assert len(txs) >= 2
 
-    # Update amount
-    t1u = await update_transaction_amount(session, user_id=1, transaction_id=t1.id, amount=Decimal("3.00"))
-    assert t1u.amount_cents == 300
+    # Update amount (ensure t1.id is not None)
+    if t1.id is not None:
+        t1u = await update_transaction_amount(session, user_id=1, transaction_id=t1.id, amount=Decimal("3.00"))
+        assert t1u.amount_cents == 300
 
 
 @pytest.mark.asyncio
-async def test_user_isolation(session: AsyncSession):
+async def test_user_isolation(session: AsyncSession) -> None:
     # Account for user 2
-    acc2 = await create_account(session, user_id=2, data=AccountCreate(name="Other"))
+    acc2: Account = await create_account(session, user_id=2, data=AccountCreate(name="Other"))
 
     # Try to create transaction for user 1 using account from user 2
     with pytest.raises(ValueError):

@@ -4,8 +4,8 @@ import pytest_asyncio
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-from app.models.base import Base
-from app.models.user import User
+from app.db.base import Base
+from app.core.auth.persistence.models.user import User
 from app.crud.base import CRUDBase
 
 

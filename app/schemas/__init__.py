@@ -1,0 +1,1 @@
+"""Compatibilidade com importações legadas em app.schemas.*"""

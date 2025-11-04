@@ -7,11 +7,17 @@ import logging
 from sqlalchemy.engine import make_url
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from app.api.routes.auth import router as auth_router
-from app.api.routes.finance import router as fin_router
-from app.core.security import get_current_user
-from app.models.user import User
-from app.schemas.user import UserOut
+from app.core.auth.interfaces.api.auth import router as auth_router
+from app.modules.finance.interfaces.api.accounts import router as accounts_router
+from app.modules.finance.interfaces.api.categories import router as categories_router
+from app.modules.finance.interfaces.api.transactions import router as transactions_router
+from app.modules.finance.interfaces.api.transfers import router as transfers_router
+from app.modules.finance.interfaces.api.reports import router as reports_router
+from app.modules.finance.interfaces.api.fx_rates import router as fx_rates_router
+from app.core.modules import require_module
+from app.core.auth.security import get_current_user
+from app.core.auth.persistence.models.user import User
+from app.core.auth.schemas.user import UserOut
 from app.core.settings import get_settings
 from app.middleware.access_log import AccessLogMiddleware
 
@@ -76,7 +82,12 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth_router)
-    app.include_router(fin_router)
+    app.include_router(accounts_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(categories_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(transactions_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(transfers_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(reports_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
+    app.include_router(fx_rates_router, prefix="/fin", tags=["finances"], dependencies=[Depends(require_module("finance"))])
 
     @app.get("/me", response_model=UserOut)
     async def me(current_user: User = Depends(get_current_user)) -> UserOut:

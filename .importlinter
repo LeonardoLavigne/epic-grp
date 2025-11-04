@@ -2,28 +2,40 @@
 root_packages =
   app
 
-[contract: app_layers]
-name = Enforce app layering
+# Contract for the finance module's hexagonal architecture
+[contract:finance_hexagonal_layers]
+name = Enforce hexagonal layers for the finance module
 type = layers
 layers =
-  app.api
-  app.crud
-  app.schemas
-  app.services
-  app.models
-  app.core
+  app.modules.finance.interfaces
+  app.modules.finance.infrastructure
+  app.modules.finance.application
+  app.modules.finance.domain
+containers =
+  app.modules.finance
 
-[contract: no_import_api_from_lower]
-name = Prevent lower layers importing API
+# Contract to protect the core components
+[contract:core_independence]
+name = Core components should not depend on modules
 type = forbidden
 source_modules =
-  app.crud
-  app.schemas
-  app.services
-  app.models
   app.core
 forbidden_modules =
+  app.modules
+  # Legacy folders, to be removed after refactoring
   app.api
+  app.crud
+  app.schemas
 ignore_imports =
-  app.main -> app.api.*
+  # The core module loader needs to import modules; this is the exception.
+  app.core.modules -> app.modules.*
 
+# Contract to prevent modules from importing each other directly.
+# This will enforce communication via the event bus.
+[contract:module_independence]
+name = Modules should be independent and not import each other
+type = forbidden
+source_modules =
+  app.modules.finance
+forbidden_modules =
+  # Add other modules here as they are created, e.g., app.modules.health
