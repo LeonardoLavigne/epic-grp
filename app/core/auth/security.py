@@ -10,8 +10,8 @@ from starlette.requests import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import get_settings, Settings
-from app.models.user import User
-from app.crud.user import get_user_by_email
+from app.core.auth.persistence.models.user import User
+from app.core.auth.persistence.user_repository import get_user_by_email
 from app.db.session import get_session
 
 

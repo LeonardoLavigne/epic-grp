@@ -7,7 +7,7 @@ import logging
 from sqlalchemy.engine import make_url
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
-from app.api.routes.auth import router as auth_router
+from app.core.auth.interfaces.api.auth import router as auth_router
 from app.modules.finance.interfaces.api.accounts import router as accounts_router
 from app.modules.finance.interfaces.api.categories import router as categories_router
 from app.modules.finance.interfaces.api.transactions import router as transactions_router
@@ -15,9 +15,9 @@ from app.modules.finance.interfaces.api.transfers import router as transfers_rou
 from app.modules.finance.interfaces.api.reports import router as reports_router
 from app.modules.finance.interfaces.api.fx_rates import router as fx_rates_router
 from app.core.modules import require_module
-from app.core.security import get_current_user
-from app.models.user import User
-from app.schemas.user import UserOut
+from app.core.auth.security import get_current_user
+from app.core.auth.persistence.models.user import User
+from app.core.auth.schemas.user import UserOut
 from app.core.settings import get_settings
 from app.middleware.access_log import AccessLogMiddleware
 

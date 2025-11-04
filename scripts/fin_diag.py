@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import select
 
-from app.models.base import Base
+from app.db.base import Base
 from app.modules.finance.infrastructure.persistence.models.account import Account
 from app.modules.finance.infrastructure.persistence.models.category import Category
 from app.modules.finance.infrastructure.persistence.models.transaction import Transaction

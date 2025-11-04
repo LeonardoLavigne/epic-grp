@@ -30,8 +30,8 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here for 'autogenerate' support
 # Import Base and model modules so tables are registered in metadata
-from app.models.base import Base  # noqa: E402
-from app.models import user as _user  # noqa: F401, E402
+from app.db.base import Base  # noqa: E402
+from app.core.auth.persistence.models import user as _user  # noqa: F401, E402
 from app.modules.finance.infrastructure.persistence.models import account as _fin_account  # noqa: F401, E402
 from app.modules.finance.infrastructure.persistence.models import category as _fin_category  # noqa: F401, E402
 from app.modules.finance.infrastructure.persistence.models import transaction as _fin_transaction  # noqa: F401, E402

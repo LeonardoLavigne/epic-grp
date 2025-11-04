@@ -4,7 +4,7 @@ import datetime as dt
 from typing import List
 
 from app.core.money import cents_to_amount, quantize_amount
-from app.services.fx import get_rate, RateNotFound
+from app.modules.finance.infrastructure.external.fx_rate_service import get_rate, RateNotFound
 
 
 @dataclass

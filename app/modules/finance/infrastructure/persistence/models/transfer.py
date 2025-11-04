@@ -2,7 +2,7 @@ from sqlalchemy import String, ForeignKey, BigInteger, Numeric, Boolean, DateTim
 from sqlalchemy.orm import Mapped, mapped_column
 import datetime as dt
 
-from app.models.base import Base, TimestampMixin
+from app.db.base import Base, TimestampMixin
 
 
 class Transfer(TimestampMixin, Base):

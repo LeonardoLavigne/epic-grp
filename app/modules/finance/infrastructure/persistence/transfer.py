@@ -10,7 +10,7 @@ from app.modules.finance.infrastructure.persistence.models.transaction import Tr
 from app.modules.finance.infrastructure.persistence.models.transfer import Transfer
 from app.core.money import currency_exponent, amount_to_cents, validate_amount_for_currency
 from app.modules.finance.interfaces.api.schemas.transfer import TransferCreate
-from app.services.fx import get_rate, RateNotFound
+from app.modules.finance.infrastructure.external.fx_rate_service import get_rate, RateNotFound
 
 
 TRANSFER_IN_NAME = "Transfer In"

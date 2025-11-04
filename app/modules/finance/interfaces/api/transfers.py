@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.security import get_current_user
+from app.core.auth.security import get_current_user
 from app.db.session import get_session
-from app.models.user import User
+from app.core.auth.persistence.models.user import User
 from app.modules.finance.infrastructure.persistence.models.transfer import Transfer
 from app.modules.finance.interfaces.api.schemas.transfer import TransferCreate, TransferResponse, TransferOut
 from app.core.money import cents_to_amount
@@ -36,9 +36,11 @@ async def create_transfer(
     try:
         # Use the hexagonal use case
         from app.modules.finance.infrastructure.persistence.transfer import TransferCRUD
+        from app.core.events.event_bus import event_bus
         use_case = CreateTransferUseCase(
             transfer_crud=TransferCRUD(),  # Use the hexagonal persistence
-            transaction_crud=None  # Not needed for this use case
+            transaction_crud=None,  # Not needed for this use case
+            event_bus=event_bus
         )
         request = CreateTransferRequest(user_id=current_user.id, data=data)
         response = await use_case.execute(request, session)

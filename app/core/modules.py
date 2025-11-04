@@ -2,8 +2,8 @@ from typing import Callable, Awaitable
 from fastapi import Depends, HTTPException, status
 
 from app.core.settings import get_settings, Settings
-from app.models.user import User
-from app.core.security import get_current_user
+from app.core.auth.persistence.models.user import User
+from app.core.auth.security import get_current_user
 
 
 def require_module(module: str) -> Callable[..., Awaitable[None]]:

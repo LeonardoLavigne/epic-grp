@@ -3,7 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 import datetime as dt
 from decimal import Decimal
 
-from app.models.base import Base, TimestampMixin
+from app.db.base import Base, TimestampMixin
 
 
 class FxRate(TimestampMixin, Base):

@@ -6,14 +6,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.security import get_current_user
+from app.core.auth.security import get_current_user
 from app.db.session import get_session
-from app.models.user import User
+from app.core.auth.persistence.models.user import User
 from app.modules.finance.infrastructure.persistence.models.account import Account
 from app.modules.finance.infrastructure.persistence.models.category import Category
 from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
 from app.modules.finance.interfaces.api.schemas.reports import BalanceByAccountItem, MonthlyByCategoryItem
-from app.services.fx import get_rate, RateNotFound
+from app.modules.finance.infrastructure.external.fx_rate_service import get_rate, RateNotFound
 from app.core.money import cents_to_amount, quantize_amount
 from app.modules.finance.application.use_cases.generate_reports import (
     GenerateReportsUseCase,

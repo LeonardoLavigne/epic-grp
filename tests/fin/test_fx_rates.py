@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncSession
 
-from app.models.base import Base
-from app.services.fx import get_rate, RateNotFound
+from app.db.base import Base
+from app.modules.finance.infrastructure.external.fx_rate_service import get_rate, RateNotFound
 
 
 DB_FILE = Path("./test_fin_fx.db")

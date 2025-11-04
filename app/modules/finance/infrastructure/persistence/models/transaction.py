@@ -2,7 +2,7 @@ from sqlalchemy import BigInteger, ForeignKey, Text, Index, DateTime, Boolean
 import datetime as dt
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin
+from app.db.base import Base, TimestampMixin
 
 
 class Transaction(TimestampMixin, Base):

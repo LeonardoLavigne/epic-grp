@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.money import cents_to_amount
+from app.core.events.event_bus import EventBus
+from app.modules.finance.domain.events import TransferCreated
 
 if TYPE_CHECKING:
     from app.modules.finance.interfaces.api.schemas.transfer import TransferCreate, TransferOut
@@ -27,15 +29,27 @@ class CreateTransferResponse:
 class CreateTransferUseCase:
     """Use case for creating transfers with fee calculations."""
 
-    def __init__(self, transfer_crud, transaction_crud) -> None:  # type: ignore
+    def __init__(self, transfer_crud, transaction_crud, event_bus: EventBus) -> None:  # type: ignore
         self.transfer_crud = transfer_crud
         self.transaction_crud = transaction_crud
+        self.event_bus = event_bus
 
     async def execute(self, request: CreateTransferRequest, session: "AsyncSession") -> CreateTransferResponse:
         """Execute the create transfer use case."""
         # Create the transfer using CRUD
         tr, tx_out, tx_in = await self.transfer_crud.create_transfer(
             session, user_id=request.user_id, data=request.data
+        )
+
+        # Publish event
+        await self.event_bus.publish(
+            TransferCreated(
+                user_id=request.user_id,
+                from_account_id=tr.src_account_id,
+                to_account_id=tr.dst_account_id,
+                amount_sent=cents_to_amount(tr.src_amount_cents, tr.rate_base),
+                amount_received=cents_to_amount(tr.dst_amount_cents, tr.rate_quote),
+            )
         )
 
         # Build the response DTO with calculated fees

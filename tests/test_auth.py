@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import (
 
 from app.main import create_app
 from app.db.session import get_session as app_get_session
-from app.models.base import Base
+from app.db.base import Base
 
 
 TEST_DB_URL = "sqlite+aiosqlite:///./test_auth.db"

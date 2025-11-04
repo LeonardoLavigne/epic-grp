@@ -13,10 +13,10 @@ from sqlalchemy import select
 
 from app.main import create_app
 from app.db.session import get_session as app_get_session
-from app.models.base import Base
-from app.models.user import User
+from app.db.base import Base
+from app.core.auth.persistence.models.user import User
 from app.modules.finance.infrastructure.persistence.models.transaction import Transaction
-from app.core.security import get_current_user
+from app.core.auth.security import get_current_user
 
 
 DB_FILE = Path("./test_fin_transfers.db")

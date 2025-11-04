@@ -6,9 +6,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.core.security import get_current_user
+from app.core.auth.security import get_current_user
 from app.db.session import get_session
-from app.models.user import User
+from app.core.auth.persistence.models.user import User
 from app.modules.finance.domain.entities.transaction import Transaction as TransactionEntity
 from app.modules.finance.infrastructure.persistence.models.account import Account
 from app.modules.finance.infrastructure.persistence.models.category import Category

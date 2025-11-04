@@ -5,15 +5,15 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncSession
 from app.db.session import get_session as app_get_session
-from app.models.base import Base
-from app.models.user import User
+from app.db.base import Base
+from app.core.auth.persistence.models.user import User
 import asyncio
 from pathlib import Path
 
 DB_FILE = Path("./test_security_authz.db")
 TEST_DB_URL = f"sqlite+aiosqlite:///{DB_FILE}"
 from app.core.settings import get_settings, Settings
-from app.core.security import create_access_token
+from app.core.auth.security import create_access_token
 
 
 def test_auth_me_unauthenticated():
